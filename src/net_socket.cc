@@ -18,10 +18,10 @@ net_socket::net_socket(const network_protocol net, const transport_protocol tran
 	_trans_proto = tran;
 
 	if( tran != transport_protocol::TCP )
-		throw std::invalid_argument("Only TCP sockets supported at this time.");
+		throw std::invalid_argument("Only TCP sockets supported at this time");
 
 	if( (net != network_protocol::ANY) && (net != network_protocol::IPv4) && (net != network_protocol::IPv6) )
-		throw std::invalid_argument("Unsupported network protocol.");
+		throw std::invalid_argument("Unsupported network protocol");
 }
 
 net_socket::net_socket(const net_socket& other) {
