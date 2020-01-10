@@ -1,6 +1,8 @@
 #ifndef __NET_SOCKET_H
 #define __NET_SOCKET_H
 
+#include <string>
+
 namespace network_socket {
 
 class net_socket{
@@ -11,6 +13,8 @@ public:
 
 	net_socket();
 	net_socket(const network_protocol net, const transport_protocol tran);
+	net_socket(const net_socket& rhs);
+	net_socket& operator=(const net_socket& rhs);
 
 	// Getter and setter members
 	int get_socket_descriptor() const {return _sock_desc;}
@@ -18,13 +22,24 @@ public:
 	void set_network_protocol(network_protocol np);
 	transport_protocol get_transport_protocol() const {return _trans_proto;}
 	void set_transport_protocol(transport_protocol tp);
+	bool is_passively_opened() const {return _passive;}
+	int get_backlog() const {return _backlog;}
+	void set_backlog(int i);
 
+	void listen(const std::string host, const std::string service);
+	void listen(const std::string host, const unsigned short port);
+	void listen(const std::string service);
+	void listen(const unsigned short port);
 private:
 	int _sock_desc;
 	network_protocol _net_proto;
 	transport_protocol _trans_proto;
+	bool _passive;
+	int _backlog;
 
-	void init();
+	void init(const net_socket *other = nullptr);
+	int get_af() const;
+	int get_socktype() const;
 };
 
 } // namespace network_socket
