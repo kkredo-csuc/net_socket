@@ -110,6 +110,26 @@ TEST( NetSocket, ListenTests ) {
 	EXPECT_THROW(s2 = s0, runtime_error);
 }
 
+TEST( NetSocket, AssignmentOperatorTests ) {
+	net_socket s0, s1;
+	s1.set_network_protocol(net_socket::network_protocol::IPv6);
+	s1.set_transport_protocol(net_socket::transport_protocol::UDP);
+	s1.set_backlog(s1.get_backlog()+10);
+	// No way to change these items for an unopened socket
+	//  - socket descriptor
+	//  - passively opened flag
+	ASSERT_NE(s0.get_network_protocol(), s1.get_network_protocol());
+	ASSERT_NE(s0.get_transport_protocol(), s1.get_transport_protocol());
+	ASSERT_NE(s0.get_backlog(), s1.get_backlog());
+
+	s0 = s1;
+	ASSERT_EQ(s0.get_socket_descriptor(), s1.get_socket_descriptor());
+	ASSERT_EQ(s0.get_network_protocol(), s1.get_network_protocol());
+	ASSERT_EQ(s0.get_transport_protocol(), s1.get_transport_protocol());
+	ASSERT_EQ(s0.is_passively_opened(), s1.is_passively_opened());
+	ASSERT_EQ(s0.get_backlog(), s1.get_backlog());
+}
+
 TEST( NetSocket, StatefulGetterSetterTests ) {
 	net_socket s0;
 	s0.listen("localhost", 9000);

@@ -148,15 +148,16 @@ void net_socket::init(const net_socket *other) {
 
 		_net_proto = other->_net_proto;
 		_trans_proto = other->_trans_proto;
+		_backlog = other->_backlog;
 	}
 	else {
 		_net_proto = network_protocol::ANY;
 		_trans_proto = transport_protocol::TCP;
+		_backlog = 5;
 	}
 
 	_sock_desc = -1;
 	_passive = false;
-	_backlog = 5;
 }
 
 int net_socket::get_af() const {
