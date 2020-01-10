@@ -50,6 +50,7 @@ TEST(NetSocket, GetterAndSetterTests ) {
 	nproto = net_socket::network_protocol::IPv6;
 	s.set_network_protocol(nproto);
 	EXPECT_EQ(s.get_network_protocol(), nproto);
+	EXPECT_THROW(s.set_network_protocol(static_cast<net_socket::network_protocol>(99)), std::invalid_argument);
 
 	// Transport protocol
 	net_socket::transport_protocol tproto = net_socket::transport_protocol::UDP;
@@ -58,4 +59,5 @@ TEST(NetSocket, GetterAndSetterTests ) {
 	tproto = net_socket::transport_protocol::TCP;
 	s.set_transport_protocol(tproto);
 	EXPECT_EQ(s.get_transport_protocol(), tproto);
+	EXPECT_THROW(s.set_transport_protocol(static_cast<net_socket::transport_protocol>(99)), std::invalid_argument);
 }
