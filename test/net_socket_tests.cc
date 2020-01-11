@@ -7,7 +7,6 @@
 using std::runtime_error;
 using std::unique_ptr;
 using std::thread;
-using std::pair;
 using std::string;
 using network_socket::net_socket;
 
@@ -16,9 +15,12 @@ std::atomic<bool> server_ready_mutex(false);
 // Helper functions
 unsigned short get_random_port();
 void check_and_echo_server(unique_ptr<net_socket> server);
-thread spawn_and_check_server(void (*func)(unique_ptr<net_socket> server), const unsigned short port);
-unique_ptr<net_socket> create_connected_client(const unsigned short port);
-unique_ptr<net_socket> create_connected_client(const string service);
+thread spawn_and_check_server(
+	void (*func)(unique_ptr<net_socket> server),
+	unsigned short port
+	);
+unique_ptr<net_socket> create_connected_client(unsigned short port);
+unique_ptr<net_socket> create_connected_client(const string &service);
 
 TEST( NetSocket, ConstructorTests ) {
 	// Default constructor
@@ -36,7 +38,10 @@ TEST( NetSocket, ConstructorTests ) {
 	EXPECT_EQ(s0.get_transport_protocol(), net_socket::transport_protocol::TCP);
 
 	// IPv4, UDP
-	EXPECT_THROW(net_socket s1(net_socket::network_protocol::IPv4, net_socket::transport_protocol::UDP), std::invalid_argument);
+	EXPECT_THROW(
+		net_socket s1(net_socket::network_protocol::IPv4, net_socket::transport_protocol::UDP),
+		std::invalid_argument
+		);
 	/* Once UDP implemented
 	net_socket s1(net_socket::network_protocol::IPv4, net_socket::transport_protocol::UDP);
 	EXPECT_EQ(s1.get_network_protocol(), net_socket::network_protocol::IPv4);
@@ -49,7 +54,10 @@ TEST( NetSocket, ConstructorTests ) {
 	EXPECT_EQ(s2.get_transport_protocol(), net_socket::transport_protocol::TCP);
 
 	// IPV6, UDP
-	EXPECT_THROW(net_socket s3(net_socket::network_protocol::IPv6, net_socket::transport_protocol::UDP), std::invalid_argument);
+	EXPECT_THROW(
+		net_socket s3(net_socket::network_protocol::IPv6, net_socket::transport_protocol::UDP),
+		std::invalid_argument
+		);
 	/* Once UDP implemented
 	net_socket s3(net_socket::network_protocol::IPv6, net_socket::transport_protocol::UDP);
 	EXPECT_EQ(s3.get_network_protocol(), net_socket::network_protocol::IPv6);
@@ -70,7 +78,10 @@ TEST( NetSocket, GetterAndSetterTests ) {
 	nproto = net_socket::network_protocol::IPv6;
 	s.set_network_protocol(nproto);
 	EXPECT_EQ(s.get_network_protocol(), nproto);
-	EXPECT_THROW(s.set_network_protocol(static_cast<net_socket::network_protocol>(99)), std::invalid_argument);
+	EXPECT_THROW(
+		s.set_network_protocol(static_cast<net_socket::network_protocol>(99)),
+		std::invalid_argument
+		);
 
 	// Transport protocol
 	net_socket::transport_protocol tproto = net_socket::transport_protocol::UDP;
@@ -79,7 +90,10 @@ TEST( NetSocket, GetterAndSetterTests ) {
 	tproto = net_socket::transport_protocol::TCP;
 	s.set_transport_protocol(tproto);
 	EXPECT_EQ(s.get_transport_protocol(), tproto);
-	EXPECT_THROW(s.set_transport_protocol(static_cast<net_socket::transport_protocol>(99)), std::invalid_argument);
+	EXPECT_THROW(
+		s.set_transport_protocol(static_cast<net_socket::transport_protocol>(99)),
+		std::invalid_argument
+		);
 
 	int bl = s.get_backlog();
 	s.set_backlog(bl+10);
@@ -194,7 +208,8 @@ TEST( NetSocket, InvalidOperationTests ) {
 
 // Helper function definitions
 unsigned short get_random_port() {
-	std::default_random_engine generator(std::chrono::system_clock::now().time_since_epoch().count());
+	auto seed = std::chrono::system_clock::now().time_since_epoch().count();
+	std::default_random_engine generator(seed);
 	std::uniform_int_distribution<unsigned short> dist(5000,50000);
 	return dist(generator);
 }
@@ -213,14 +228,17 @@ thread spawn_and_check_server(void (*func)(unique_ptr<net_socket>), const unsign
 	try{
 		server->listen("localhost", port);
 	}
-	catch( runtime_error e ){
+	catch( runtime_error &e ){
 		server_ready_mutex = true; // Let client run and generate an error
 		throw;
 	}
 	EXPECT_TRUE(server->is_passively_opened());
 	EXPECT_FALSE(server->is_connected());
 	EXPECT_THROW(server->set_network_protocol(net_socket::network_protocol::IPv6), runtime_error);
-	EXPECT_THROW(server->set_transport_protocol(net_socket::transport_protocol::UDP), runtime_error);
+	EXPECT_THROW(
+		server->set_transport_protocol(net_socket::transport_protocol::UDP),
+		runtime_error
+		);
 	EXPECT_THROW(server->set_backlog(server->get_backlog()+1), runtime_error);
 
 	// Throw exception if assigning to/from an open socket
@@ -239,8 +257,9 @@ thread spawn_and_check_server(void (*func)(unique_ptr<net_socket>), const unsign
 
 void wait_until_server_ready() {
 	// Wait for server to startup
-	while(!server_ready_mutex)
+	while(!server_ready_mutex) {
 		std::this_thread::yield();
+	}
 }
 
 unique_ptr<net_socket> create_connected_client(const unsigned short port) {
@@ -251,7 +270,7 @@ unique_ptr<net_socket> create_connected_client(const unsigned short port) {
 	return client;
 }
 
-unique_ptr<net_socket> create_connected_client(const string service) {
+unique_ptr<net_socket> create_connected_client(const string &service) {
 	wait_until_server_ready();
 	unique_ptr<net_socket> client(new net_socket());
 
