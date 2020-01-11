@@ -1,6 +1,6 @@
 CXX=clang++
 CXXFLAGS=-Wall -std=c++11 -I src
-LDLIBS=-lgtest_main -lgtest
+LDLIBS=-lgtest_main -lgtest -lpthread
 
 TEST_EXE=test/net_socket_tests
 TEST_OBJ=src/net_socket.o

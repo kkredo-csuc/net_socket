@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 using std::string;
+using std::unique_ptr;
 
 namespace network_socket {
 
@@ -34,7 +35,7 @@ net_socket& net_socket::operator=(const net_socket& rhs) {
 }
 
 void net_socket::set_network_protocol(network_protocol np) {
-	if( _passive )
+	if( _passive || _connected )
 		throw std::runtime_error("Unable to change network protocol of an open socket");
 
 	switch(np) {
@@ -50,7 +51,7 @@ void net_socket::set_network_protocol(network_protocol np) {
 }
 
 void net_socket::set_transport_protocol(transport_protocol tp) {
-	if( _passive )
+	if( _passive || _connected )
 		throw std::runtime_error("Unable to change transport protocol of an open socket");
 
 	switch(tp) {
@@ -140,10 +141,67 @@ void net_socket::listen(const unsigned short port){
 	listen("", std::to_string(port));
 }
 
+void net_socket::connect(const string host, const string service) {
+	if( _passive )
+		throw std::runtime_error("Unable to connect with a passively opened socket");
+
+	struct addrinfo hints;
+	struct addrinfo *rp, *result;
+	int s;
+
+	// Translate host name into peer's IP address
+	memset( &hints, 0, sizeof( hints ) );
+	hints.ai_family = get_af();
+	hints.ai_socktype = get_socktype();
+	hints.ai_flags = 0;
+	hints.ai_protocol = 0;
+
+	if ( ( s = getaddrinfo( host.c_str(), service.c_str(), &hints, &result ) ) != 0 ) {
+		throw std::runtime_error(strerror(errno));
+	}
+
+	// Iterate through the address list and try to connect
+	for ( rp = result; rp != NULL; rp = rp->ai_next ) {
+		if ( ( s = socket( rp->ai_family, rp->ai_socktype, rp->ai_protocol ) ) == -1 ) {
+			continue;
+		}
+
+		if ( ::connect( s, rp->ai_addr, rp->ai_addrlen ) != -1 ) {
+			break;
+		}
+
+		::close( s );
+	}
+	freeaddrinfo( result );
+	if ( rp == NULL ) {
+		throw std::runtime_error(strerror(errno));
+	}
+
+	_sock_desc = s;
+	_connected = true;
+}
+
+void net_socket::connect(const string host, const unsigned short port) {
+	connect(host, std::to_string(port));
+}
+
+unique_ptr<net_socket> net_socket::accept() {
+	int new_s = ::accept(_sock_desc, NULL, NULL);
+	if( new_s == -1 ){
+		throw std::runtime_error(strerror(errno));
+	}
+
+	unique_ptr<net_socket> ret(new net_socket(_net_proto, _trans_proto));
+	ret->_sock_desc = new_s;
+	ret->_connected = true;
+
+	return ret;
+}
+
 // Private members
 void net_socket::init(const net_socket *other) {
 	if( other != nullptr ) {
-		if( _passive || other->_passive )
+		if( _passive || other->_passive || _connected || other->_connected )
 			throw std::runtime_error("Unable to assign to/from an open socket");
 
 		_net_proto = other->_net_proto;
@@ -158,6 +216,7 @@ void net_socket::init(const net_socket *other) {
 
 	_sock_desc = -1;
 	_passive = false;
+	_connected = false;
 }
 
 int net_socket::get_af() const {
