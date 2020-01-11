@@ -220,6 +220,8 @@ void net_socket::close() {
 	if( _sock_desc != -1 ){
 		::close(_sock_desc);
 		_sock_desc = -1;
+		_passive = false;
+		_connected = false;
 	}
 }
 

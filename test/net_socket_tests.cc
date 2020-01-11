@@ -223,9 +223,38 @@ TEST( NetSocket, DestructorTests ){
 
 	// Send should return -1 on a closed socket
 	ssize_t ret = ::send(sd, &sd, sizeof(sd), 0);
-	ASSERT_EQ(ret, -1);
+	EXPECT_EQ(ret, -1);
 
 	st.join();
+}
+
+TEST( NetSocket, CloseTests ){
+	unsigned short port = get_random_port();
+	thread st = spawn_and_check_server(check_and_echo_server, port);
+	unique_ptr<net_socket> c0 = create_connected_client(port);
+
+	int sd = c0->get_socket_descriptor();
+
+	// Check that a send works
+	ssize_t amt = ::send(sd, &sd, sizeof(sd), 0);
+	ASSERT_GT(amt, 0);
+
+	// Close the socket
+	c0->close();
+	EXPECT_FALSE(c0->is_connected());
+	EXPECT_EQ(c0->get_socket_descriptor(), -1);
+
+	// Send should return -1 on a closed socket
+	ssize_t ret = ::send(sd, &sd, sizeof(sd), 0);
+	EXPECT_EQ(ret, -1);
+
+	st.join();
+
+	net_socket s;
+	s.listen("localhost", 9000);
+	s.close();
+	EXPECT_FALSE(s.is_passively_opened());
+	EXPECT_EQ(s.get_socket_descriptor(), -1);
 }
 
 // Helper function definitions
