@@ -42,6 +42,10 @@ net_socket& net_socket::operator=(net_socket&& rhs) noexcept {
 	return *this;
 }
 
+net_socket::~net_socket() noexcept {
+	close();
+}
+
 void net_socket::set_network_protocol(network_protocol np) {
 	if( _passive || _connected ) {
 		throw std::runtime_error("Unable to change network protocol of an open socket");
@@ -210,6 +214,13 @@ unique_ptr<net_socket> net_socket::accept() {
 	ret->_connected = true;
 
 	return ret;
+}
+
+void net_socket::close() {
+	if( _sock_desc != -1 ){
+		::close(_sock_desc);
+		_sock_desc = -1;
+	}
 }
 
 // Private members

@@ -20,7 +20,7 @@ public:
 	net_socket(net_socket&& other) noexcept;
 	net_socket& operator=(const net_socket& rhs);
 	net_socket& operator=(net_socket&& rhs) noexcept;
-	~net_socket() noexcept = default;
+	~net_socket() noexcept;
 
 	// Getter and setter members
 	int get_socket_descriptor() const {return _sock_desc;}
@@ -40,6 +40,7 @@ public:
 	void connect(const std::string &host, const std::string &service);
 	void connect(const std::string &host, unsigned short port);
 	std::unique_ptr<net_socket> accept();
+	void close();
 
 private:
 	int _sock_desc{-1};

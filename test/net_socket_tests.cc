@@ -2,6 +2,7 @@
 #include <thread>
 #include <random>
 #include <atomic>
+#include <sys/socket.h>
 #include "net_socket.h"
 
 using std::runtime_error;
@@ -204,6 +205,27 @@ TEST( NetSocket, InvalidOperationTests ) {
 	// Can't call accept on an unopened socket
 	net_socket s0;
 	EXPECT_THROW(s0.accept(), runtime_error);
+}
+
+TEST( NetSocket, DestructorTests ){
+	unsigned short port = get_random_port();
+	thread st = spawn_and_check_server(check_and_echo_server, port);
+	unique_ptr<net_socket> c0 = create_connected_client(port);
+
+	int sd = c0->get_socket_descriptor();
+
+	// Check that a send works
+	ssize_t amt = ::send(sd, &sd, sizeof(sd), 0);
+	ASSERT_GT(amt, 0);
+
+	// Desctructor should close the socket
+	c0.reset();
+
+	// Send should return -1 on a closed socket
+	ssize_t ret = ::send(sd, &sd, sizeof(sd), 0);
+	ASSERT_EQ(ret, -1);
+
+	st.join();
 }
 
 // Helper function definitions
