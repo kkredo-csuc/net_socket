@@ -1,6 +1,5 @@
 #include "net_socket.h"
 #include <stdexcept>
-#include <cstring>
 #include <netdb.h>
 #include <unistd.h>
 
@@ -89,6 +88,32 @@ void net_socket::set_backlog(int backlog) {
 	}
 
 	_backlog = backlog;
+}
+
+double net_socket::get_timeout() const {
+	double ret = 0.0;
+	if( _do_timeout ) {
+		ret =  _timeout.tv_sec + static_cast<double>(_timeout.tv_usec)/1e6;
+	}
+
+	return ret;
+}
+
+void net_socket::set_timeout(double s) {
+	if( s < 0.0 ) {
+		throw std::invalid_argument("Negative timeout value provided");
+	}
+
+	if( s == 0 ) {
+		_do_timeout = false;
+		_timeout.tv_sec = 0;
+		_timeout.tv_usec = 0;
+	}
+	else {
+		_do_timeout = true;
+		_timeout.tv_sec = static_cast<long>(s);
+		_timeout.tv_usec = static_cast<long>((s-_timeout.tv_sec)*1e6);
+	}
 }
 
 void net_socket::listen(const string &host, const string &service) {
@@ -225,6 +250,131 @@ void net_socket::close() {
 	}
 }
 
+ssize_t net_socket::send(const void *data, size_t max_size) const {
+	if( !_connected ) {
+		throw std::runtime_error("Unable to send on unconnected socket");
+	}
+
+	ssize_t ret = ::send(_sock_desc, data, max_size, 0);
+	if( ret == -1 ) {
+		throw std::runtime_error(string("net_socket::send(): ")+string(strerror(errno)));
+	}
+
+	return ret;
+}
+
+ssize_t net_socket::send(const string &data, size_t max_size) const {
+	if( max_size == 0 ) {
+		max_size = data.length();
+	}
+
+	return send(data.data(), max_size);
+}
+
+ssize_t net_socket::send_all(const void *data, size_t exact_size) const {
+	if( !_connected ) {
+		throw std::runtime_error("Unable to send_all on unconnected socket");
+	}
+
+	auto d = static_cast<const char*>(data);
+	ssize_t sent = 0;
+	while( sent < exact_size ) {
+		sent += send(d + sent, exact_size - sent);
+	}
+
+	return sent;
+}
+
+ssize_t net_socket::send_all(const string &data) const {
+	return send_all(data.data(), data.length());
+}
+
+ssize_t net_socket::recv(void *data, size_t max_size) {
+	if( !_connected ) {
+		throw std::runtime_error("Unable to recv on unconnected socket");
+	}
+
+	if( max_size == 0 ){
+		return 0;
+	}
+
+	if( _do_timeout ){
+		fd_set fds;
+		FD_ZERO(&fds);
+		FD_SET(_sock_desc, &fds);
+		struct timeval tmp_tv = _timeout;
+		int sret = select(_sock_desc+1, &fds, nullptr, nullptr, &tmp_tv);
+		if( sret < 0 ) {
+			throw std::runtime_error(string("net_socket::recv(): ")+string(strerror(errno)));
+		}
+
+		if( sret == 0 ) {
+			throw timeout_exception();
+		}
+	}
+
+	ssize_t ret = ::recv(_sock_desc, data, max_size, 0);
+	if( ret == -1 ) {
+		throw std::runtime_error(string("net_socket::recv(): ")+string(strerror(errno)));
+	}
+
+	if( ret == 0 ) {
+		close();
+	}
+
+	return ret;
+}
+
+ssize_t net_socket::recv(string &data, size_t max_size) {
+	if( max_size == 0 ) {
+		if( data.empty() ) {
+			max_size = _recv_size;
+		}
+		else {
+			max_size = data.length();
+		}
+	}
+
+	char tmp[max_size];
+	ssize_t ss = recv(tmp, max_size);
+	data.assign(tmp, tmp + ss);
+	return ss;
+}
+
+ssize_t net_socket::recv_all(void *data, size_t exact_size) {
+	if( !_connected ) {
+		throw std::runtime_error("Unable to recv_all on unconnected socket");
+	}
+
+	auto d = static_cast<char*>(data);
+	size_t rcvd = 0, rs;
+	while( rcvd < exact_size ) {
+		rs = recv(d + rcvd, exact_size - rcvd);
+		if( rs == 0 ){
+			break;
+		}
+		rcvd += rs;
+	}
+
+	return rcvd;
+}
+
+ssize_t net_socket::recv_all(string &data, size_t exact_size) {
+	if( exact_size == 0 ) {
+		if( data.empty() ) {
+			exact_size = _recv_size;
+		}
+		else {
+			exact_size = data.length();
+		}
+	}
+
+	char tmp[exact_size];
+	ssize_t ss = recv_all(tmp, exact_size);
+	data.assign(tmp, tmp + ss);
+	return ss;
+}
+
 // Private members
 void net_socket::copy(const net_socket *other) {
 	if( other != nullptr ) {
@@ -235,11 +385,17 @@ void net_socket::copy(const net_socket *other) {
 		_net_proto = other->_net_proto;
 		_trans_proto = other->_trans_proto;
 		_backlog = other->_backlog;
+		_do_timeout = other->_do_timeout;
+		_timeout = other->_timeout;
+		_recv_size = other->_recv_size;
 	}
 	else {
 		_net_proto = network_protocol::ANY;
 		_trans_proto = transport_protocol::TCP;
 		_backlog = 5;
+		_do_timeout = false;
+		_timeout = {};
+		_recv_size = 1400;
 	}
 
 	_sock_desc = -1;
@@ -254,6 +410,9 @@ void net_socket::move(net_socket *other) {
 	_passive = other->_passive;
 	_backlog = other->_backlog;
 	_connected = other->_connected;
+	_do_timeout = other->_do_timeout;
+	_timeout = other->_timeout;
+	_recv_size = other->_recv_size;
 	other->copy();
 }
 

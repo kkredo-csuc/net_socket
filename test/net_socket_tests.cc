@@ -9,7 +9,9 @@ using std::runtime_error;
 using std::unique_ptr;
 using std::thread;
 using std::string;
+using std::vector;
 using network_socket::net_socket;
+using network_socket::timeout_exception;
 
 std::atomic<bool> server_ready_mutex(false);
 
@@ -32,6 +34,9 @@ TEST( NetSocket, ConstructorTests ) {
 	EXPECT_FALSE(s.is_passively_opened());
 	EXPECT_EQ(s.get_backlog(), 5);
 	EXPECT_FALSE(s.is_connected());
+	EXPECT_FALSE(s.timeout_is_set());
+	EXPECT_EQ(s.get_timeout(), 0.0);
+	EXPECT_EQ(s.get_recv_size(), 1400);
 
 	// IPv4, TCP
 	net_socket s0(net_socket::network_protocol::IPv4, net_socket::transport_protocol::TCP);
@@ -96,10 +101,30 @@ TEST( NetSocket, GetterAndSetterTests ) {
 		std::invalid_argument
 		);
 
+	// Backlog
 	int bl = s.get_backlog();
 	s.set_backlog(bl+10);
 	EXPECT_EQ(s.get_backlog(), bl+10);
 	ASSERT_THROW(s.set_backlog(-10), std::invalid_argument);
+
+	// Timeout
+	double to = s.get_timeout();
+	s.set_timeout(to+1.5);
+	EXPECT_EQ(s.get_timeout(), to+1.5);
+	EXPECT_TRUE(s.timeout_is_set());
+	s.clear_timeout();
+	EXPECT_FALSE(s.timeout_is_set());
+	EXPECT_EQ(s.get_timeout(), 0.0);
+	ASSERT_THROW(s.set_timeout(-1.0), std::invalid_argument);
+	s.set_timeout(1.0);
+	EXPECT_TRUE(s.timeout_is_set());
+	s.set_timeout(0.0);
+	EXPECT_FALSE(s.timeout_is_set());
+
+	// Receive size
+	size_t rs = s.get_recv_size();
+	s.set_recv_size(rs+100);
+	EXPECT_EQ(s.get_recv_size(), rs+100);
 }
 
 TEST( NetSocket, ListenTests ) {
@@ -141,21 +166,29 @@ TEST( NetSocket, AssignmentOperatorTests ) {
 	s1.set_network_protocol(net_socket::network_protocol::IPv6);
 	s1.set_transport_protocol(net_socket::transport_protocol::UDP);
 	s1.set_backlog(s1.get_backlog()+10);
+	s1.set_timeout(s1.get_timeout()+2.3);
+	s1.set_recv_size(s1.get_recv_size()+100);
 	// No way to change these items for an unopened socket
 	//  - socket descriptor
 	//  - passively opened flag
 	//  - connected flag
-	ASSERT_NE(s0.get_network_protocol(), s1.get_network_protocol());
-	ASSERT_NE(s0.get_transport_protocol(), s1.get_transport_protocol());
-	ASSERT_NE(s0.get_backlog(), s1.get_backlog());
+	EXPECT_NE(s0.get_network_protocol(), s1.get_network_protocol());
+	EXPECT_NE(s0.get_transport_protocol(), s1.get_transport_protocol());
+	EXPECT_NE(s0.get_backlog(), s1.get_backlog());
+	EXPECT_NE(s0.timeout_is_set(), s1.timeout_is_set());
+	EXPECT_NE(s0.get_timeout(), s1.get_timeout());
+	EXPECT_NE(s0.get_recv_size(), s1.get_recv_size());
 
 	s0 = s1;
-	ASSERT_EQ(s0.get_socket_descriptor(), s1.get_socket_descriptor());
-	ASSERT_EQ(s0.get_network_protocol(), s1.get_network_protocol());
-	ASSERT_EQ(s0.get_transport_protocol(), s1.get_transport_protocol());
-	ASSERT_EQ(s0.is_passively_opened(), s1.is_passively_opened());
-	ASSERT_EQ(s0.get_backlog(), s1.get_backlog());
-	ASSERT_EQ(s0.is_connected(), s1.is_connected());
+	EXPECT_EQ(s0.get_socket_descriptor(), s1.get_socket_descriptor());
+	EXPECT_EQ(s0.get_network_protocol(), s1.get_network_protocol());
+	EXPECT_EQ(s0.get_transport_protocol(), s1.get_transport_protocol());
+	EXPECT_EQ(s0.is_passively_opened(), s1.is_passively_opened());
+	EXPECT_EQ(s0.get_backlog(), s1.get_backlog());
+	EXPECT_EQ(s0.is_connected(), s1.is_connected());
+	EXPECT_EQ(s0.get_timeout(), s1.get_timeout());
+	EXPECT_EQ(s0.timeout_is_set(), s1.timeout_is_set());
+	EXPECT_EQ(s0.get_recv_size(), s1.get_recv_size());
 }
 
 TEST( NetSocket, ConnectTests ) {
@@ -202,9 +235,26 @@ TEST( NetSocket, InvalidOperationTests ) {
 
 	st.join();
 
-	// Can't call accept on an unopened socket
+	// Invalid functions on an unopened socket
 	net_socket s0;
+	char arr[50] = {0, 1, 2, 3, 4, 5, 6};
+	vector<char> vec = {'a', 'b'};
+	string str = "YZ";
 	EXPECT_THROW(s0.accept(), runtime_error);
+	EXPECT_THROW(s0.send(arr, 1), runtime_error);
+	EXPECT_THROW(s0.send(vec, 1), runtime_error);
+	EXPECT_THROW(s0.send(str, 1), runtime_error);
+	EXPECT_THROW(s0.send_all(arr, 1), runtime_error);
+	EXPECT_THROW(s0.send_all(vec), runtime_error);
+	EXPECT_THROW(s0.send_all(str), runtime_error);
+	EXPECT_THROW(s0.recv(arr, 1), runtime_error);
+	EXPECT_THROW(s0.recv(vec, 1), runtime_error);
+	EXPECT_THROW(s0.recv(str, 1), runtime_error);
+	EXPECT_THROW(s0.recv_all(arr, 1), runtime_error);
+	EXPECT_THROW(s0.recv_all(vec, 1), runtime_error);
+	EXPECT_THROW(s0.recv_all(vec), runtime_error);
+	EXPECT_THROW(s0.recv_all(str, 1), runtime_error);
+	EXPECT_THROW(s0.recv_all(str), runtime_error);
 }
 
 TEST( NetSocket, DestructorTests ){
@@ -215,8 +265,7 @@ TEST( NetSocket, DestructorTests ){
 	int sd = c0->get_socket_descriptor();
 
 	// Check that a send works
-	ssize_t amt = ::send(sd, &sd, sizeof(sd), 0);
-	ASSERT_GT(amt, 0);
+	ASSERT_GT(::send(sd, &sd, sizeof(sd), 0), 0);
 
 	// Desctructor should close the socket
 	c0.reset();
@@ -228,7 +277,7 @@ TEST( NetSocket, DestructorTests ){
 	st.join();
 }
 
-TEST( NetSocket, CloseTests ){
+TEST( NetSocket, CloseTests ) {
 	unsigned short port = get_random_port();
 	thread st = spawn_and_check_server(check_and_echo_server, port);
 	unique_ptr<net_socket> c0 = create_connected_client(port);
@@ -257,6 +306,121 @@ TEST( NetSocket, CloseTests ){
 	EXPECT_EQ(s.get_socket_descriptor(), -1);
 }
 
+TEST( NetSocket, SendRecvTests ) {
+	unsigned short port = get_random_port();
+	std::thread st = spawn_and_check_server(check_and_echo_server, port);
+	unique_ptr<net_socket> c = create_connected_client(port);
+
+	vector<char> tx_data;
+	for( int i = 0; i < c->get_recv_size(); ++i ){
+		tx_data.push_back(rand()%256);
+	}
+	vector<char> rx_data;
+
+	// Send and recv the same data
+	ASSERT_EQ(c->send(tx_data), c->get_recv_size());
+	ASSERT_EQ(c->recv(rx_data), c->get_recv_size());
+	EXPECT_EQ(rx_data, tx_data);
+
+	st.join();
+
+	// Server is now closed
+	// Requesting 0 bytes should not close socket
+	EXPECT_TRUE(c->is_connected());
+	char cdata;
+	size_t size;
+	size = c->recv(&cdata, 0);
+	EXPECT_TRUE(c->is_connected());
+	EXPECT_EQ(size, 0);
+	size = c->recv(&cdata, 1);
+	EXPECT_FALSE(c->is_connected());
+	EXPECT_EQ(c->get_socket_descriptor(), -1);
+	EXPECT_EQ(size, 0);
+}
+
+TEST(NetSocket, UnequalSendRecvTests ) {
+	unsigned short port = get_random_port();
+	thread st = spawn_and_check_server(check_and_echo_server, port);
+	unique_ptr<net_socket> c = create_connected_client(port);
+
+	vector<char> tx_data;
+	for( int i = 0; i < 10000; ++i ){
+		tx_data.push_back(rand()%256);
+	}
+	vector<char> rx_data;
+
+	// Send and receive vector
+	ssize_t ss = c->send(tx_data);
+	ASSERT_NE(ss, c->get_recv_size());
+	ssize_t rs = c->recv(rx_data);
+	EXPECT_EQ(rs, c->get_recv_size());
+	EXPECT_EQ(rs, rx_data.size());
+	EXPECT_NE(rx_data.size(), tx_data.size());
+	EXPECT_NE(rx_data, tx_data);
+	tx_data.resize(rs);
+	EXPECT_EQ(rx_data, tx_data);
+
+	st.join();
+}
+
+TEST(NetSocket, SendAllRecvAllTests ) {
+	unsigned short port = get_random_port();
+	std::thread st = spawn_and_check_server(check_and_echo_server, port);
+	unique_ptr<net_socket> c = create_connected_client(port);
+
+	size_t tx_size = 10000;
+	vector<char> tx_vec;
+	char tx_arr[tx_size];
+	string tx_str;
+	char val;
+	for( int i = 0; i < tx_size; ++i ){
+		val = static_cast<char>(rand()%256);
+		tx_vec.push_back(val);
+		tx_arr[i] = val;
+		tx_str.push_back(val);
+	}
+	vector<char> rx_vec;
+	char rx_arr[tx_size];
+	string rx_str;
+
+	// Send and receive vector
+	ASSERT_EQ(c->send_all(tx_vec), tx_size);
+	EXPECT_EQ(c->recv_all(rx_vec, tx_size), tx_size);
+	EXPECT_EQ(tx_vec.size(), rx_vec.size());
+	EXPECT_EQ(tx_vec, rx_vec);
+
+	// Send array and receive vector with defined size
+	rx_vec.clear();
+	rx_vec.resize(tx_size);
+	ASSERT_NE(rx_vec, tx_vec);
+	ASSERT_EQ(c->send_all(tx_arr, tx_size), tx_size);
+	EXPECT_EQ(c->recv_all(rx_vec), tx_size);
+	EXPECT_EQ(tx_vec.size(), rx_vec.size());
+	EXPECT_EQ(tx_vec, rx_vec);
+
+	// Send string and receive char array
+	ASSERT_EQ(c->send_all(tx_str), tx_size);
+	EXPECT_EQ(c->recv_all(rx_arr, tx_size), tx_size);
+	EXPECT_EQ(memcmp(tx_vec.data(), rx_arr, tx_size), 0);
+
+	// Send string and receive string
+	ASSERT_NE(tx_str, rx_str);
+	ASSERT_EQ(c->send_all(tx_str), tx_size);
+	EXPECT_EQ(c->recv_all(rx_str, tx_size), tx_size);
+	EXPECT_EQ(tx_str.size(), rx_str.size());
+	EXPECT_EQ(tx_str, rx_str);
+
+	// Send string and receive string with defined size
+	rx_str.clear();
+	rx_str.resize(tx_size);
+	ASSERT_NE(tx_str, rx_str);
+	ASSERT_EQ(c->send_all(tx_str), tx_size);
+	EXPECT_EQ(c->recv_all(rx_str), tx_size);
+	EXPECT_EQ(tx_str.size(), rx_str.size());
+	EXPECT_EQ(tx_str, rx_str);
+
+	st.join();
+}
 // Helper function definitions
 unsigned short get_random_port() {
 	auto seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -270,6 +434,18 @@ void check_and_echo_server(unique_ptr<net_socket> server) {
 
 	EXPECT_TRUE(worker->is_connected());
 	EXPECT_FALSE(worker->is_passively_opened());
+	worker->set_timeout(0.1); // Quit if no data arrives in 100 ms
+
+	vector<char> data;
+	try{
+		worker->recv(data);
+
+		while( !data.empty() ) {
+			worker->send(data);
+			worker->recv(data);
+		}
+	}
+	catch( timeout_exception ){ } // Do nothing with timeout
 }
 
 thread spawn_and_check_server(void (*func)(unique_ptr<net_socket>), const unsigned short port){
