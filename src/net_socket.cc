@@ -116,7 +116,7 @@ void net_socket::set_timeout(double s) {
 	}
 }
 
-void net_socket::listen(const string &host, const string &service) {
+void net_socket::listen(const std::string &host, const std::string &service) {
 	if( _sock_desc != -1 ) {
 		throw std::runtime_error("Listen called on an open socket");
 	}
@@ -171,11 +171,11 @@ void net_socket::listen(const string &host, const string &service) {
 	_passive = true;
 }
 
-void net_socket::listen(const string &host, const unsigned short port) {
+void net_socket::listen(const std::string &host, const unsigned short port) {
 	listen(host, std::to_string(port));
 }
 
-void net_socket::listen(const string &service) {
+void net_socket::listen(const std::string &service) {
 	listen("", service);
 }
 
@@ -183,7 +183,7 @@ void net_socket::listen(const unsigned short port){
 	listen("", std::to_string(port));
 }
 
-void net_socket::connect(const string &host, const string &service) {
+void net_socket::connect(const std::string &host, const std::string &service) {
 	if( _passive ) {
 		throw std::runtime_error("Unable to connect with a passively opened socket");
 	}
@@ -224,7 +224,7 @@ void net_socket::connect(const string &host, const string &service) {
 	_connected = true;
 }
 
-void net_socket::connect(const string &host, const unsigned short port) {
+void net_socket::connect(const std::string &host, const unsigned short port) {
 	connect(host, std::to_string(port));
 }
 
@@ -263,7 +263,7 @@ ssize_t net_socket::send(const void *data, size_t max_size) const {
 	return ret;
 }
 
-ssize_t net_socket::send(const string &data, size_t max_size) const {
+ssize_t net_socket::send(const std::string &data, size_t max_size) const {
 	if( max_size == 0 ) {
 		max_size = data.length();
 	}
@@ -285,7 +285,7 @@ ssize_t net_socket::send_all(const void *data, size_t exact_size) const {
 	return sent;
 }
 
-ssize_t net_socket::send_all(const string &data) const {
+ssize_t net_socket::send_all(const std::string &data) const {
 	return send_all(data.data(), data.length());
 }
 
@@ -325,7 +325,7 @@ ssize_t net_socket::recv(void *data, size_t max_size) {
 	return ret;
 }
 
-ssize_t net_socket::recv(string &data, size_t max_size) {
+ssize_t net_socket::recv(std::string &data, size_t max_size) {
 	if( max_size == 0 ) {
 		if( data.empty() ) {
 			max_size = _recv_size;
@@ -359,7 +359,7 @@ ssize_t net_socket::recv_all(void *data, size_t exact_size) {
 	return rcvd;
 }
 
-ssize_t net_socket::recv_all(string &data, size_t exact_size) {
+ssize_t net_socket::recv_all(std::string &data, size_t exact_size) {
 	if( exact_size == 0 ) {
 		if( data.empty() ) {
 			exact_size = _recv_size;

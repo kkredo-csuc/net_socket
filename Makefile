@@ -12,6 +12,11 @@ test: $(TEST_EXE) $(TEST_OBJ)
 
 $(TEST_EXE): $(TEST_OBJ)
 
+.PHONY: doc
+doc:
+	doxygen Doxyfile
+
 .PHONY: clean
 clean:
 	rm -f $(TEST_EXE) $(TEST_OBJ)
+	rm -rf doc
