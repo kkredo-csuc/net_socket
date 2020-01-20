@@ -292,6 +292,8 @@ ssize_t net_socket::send(const std::string &data, size_t max_size) const {
 }
 
 ssize_t net_socket::packet_error_send(const void *data, size_t max_size) const {
+	// Must check here in addition to send() in case the packet
+	// is dropped and send() is never called.
 	if( !_connected ) {
 		throw std::runtime_error(
 			"net_socket::packet_error_send(): Unable to send on unconnected socket");
@@ -304,11 +306,7 @@ ssize_t net_socket::packet_error_send(const void *data, size_t max_size) const {
 		ret = max_size;
 	}
 	else {
-		ret = ::send(_sock_desc, data, max_size, 0);
-	}
-
-	if( ret == -1 ) {
-		throw std::runtime_error(string("net_socket::send(): ")+string(strerror(errno)));
+		ret = send(data, max_size);
 	}
 
 	return ret;
