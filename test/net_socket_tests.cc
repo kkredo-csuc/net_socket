@@ -6,6 +6,7 @@
 #include "net_socket.h"
 
 using std::runtime_error;
+using std::invalid_argument;
 using std::unique_ptr;
 using std::thread;
 using std::string;
@@ -46,7 +47,7 @@ TEST( NetSocket, ConstructorTests ) {
 	// IPv4, UDP
 	EXPECT_THROW(
 		net_socket s1(net_socket::network_protocol::IPv4, net_socket::transport_protocol::UDP),
-		std::invalid_argument
+		invalid_argument
 		);
 	/* Once UDP implemented
 	net_socket s1(net_socket::network_protocol::IPv4, net_socket::transport_protocol::UDP);
@@ -62,7 +63,7 @@ TEST( NetSocket, ConstructorTests ) {
 	// IPV6, UDP
 	EXPECT_THROW(
 		net_socket s3(net_socket::network_protocol::IPv6, net_socket::transport_protocol::UDP),
-		std::invalid_argument
+		invalid_argument
 		);
 	/* Once UDP implemented
 	net_socket s3(net_socket::network_protocol::IPv6, net_socket::transport_protocol::UDP);
@@ -86,26 +87,26 @@ TEST( NetSocket, GetterAndSetterTests ) {
 	EXPECT_EQ(s.get_network_protocol(), nproto);
 	EXPECT_THROW(
 		s.set_network_protocol(static_cast<net_socket::network_protocol>(99)),
-		std::invalid_argument
+		invalid_argument
 		);
 
 	// Transport protocol
 	net_socket::transport_protocol tproto = net_socket::transport_protocol::UDP;
-	s.set_transport_protocol(tproto);
-	EXPECT_EQ(s.get_transport_protocol(), tproto);
+	EXPECT_THROW(s.set_transport_protocol(tproto), invalid_argument); // For now
+	//EXPECT_EQ(s.get_transport_protocol(), tproto);                  // until UDP supported
 	tproto = net_socket::transport_protocol::TCP;
 	s.set_transport_protocol(tproto);
 	EXPECT_EQ(s.get_transport_protocol(), tproto);
 	EXPECT_THROW(
 		s.set_transport_protocol(static_cast<net_socket::transport_protocol>(99)),
-		std::invalid_argument
+		invalid_argument
 		);
 
 	// Backlog
 	int bl = s.get_backlog();
 	s.set_backlog(bl+10);
 	EXPECT_EQ(s.get_backlog(), bl+10);
-	ASSERT_THROW(s.set_backlog(-10), std::invalid_argument);
+	ASSERT_THROW(s.set_backlog(-10), invalid_argument);
 
 	// Timeout
 	double to = s.get_timeout();
@@ -115,7 +116,7 @@ TEST( NetSocket, GetterAndSetterTests ) {
 	s.clear_timeout();
 	EXPECT_FALSE(s.timeout_is_set());
 	EXPECT_EQ(s.get_timeout(), 0.0);
-	ASSERT_THROW(s.set_timeout(-1.0), std::invalid_argument);
+	ASSERT_THROW(s.set_timeout(-1.0), invalid_argument);
 	s.set_timeout(1.0);
 	EXPECT_TRUE(s.timeout_is_set());
 	s.set_timeout(0.0);
@@ -164,7 +165,8 @@ TEST( NetSocket, ListenTests ) {
 TEST( NetSocket, AssignmentOperatorTests ) {
 	net_socket s0, s1;
 	s1.set_network_protocol(net_socket::network_protocol::IPv6);
-	s1.set_transport_protocol(net_socket::transport_protocol::UDP);
+	// Until UDP supported
+	EXPECT_THROW(s1.set_transport_protocol(net_socket::transport_protocol::UDP), invalid_argument);
 	s1.set_backlog(s1.get_backlog()+10);
 	s1.set_timeout(s1.get_timeout()+2.3);
 	s1.set_recv_size(s1.get_recv_size()+100);
@@ -173,7 +175,8 @@ TEST( NetSocket, AssignmentOperatorTests ) {
 	//  - passively opened flag
 	//  - connected flag
 	EXPECT_NE(s0.get_network_protocol(), s1.get_network_protocol());
-	EXPECT_NE(s0.get_transport_protocol(), s1.get_transport_protocol());
+	//EXPECT_NE(s0.get_transport_protocol(), s1.get_transport_protocol());
+	EXPECT_EQ(s0.get_transport_protocol(), s1.get_transport_protocol()); // Until UDP supported
 	EXPECT_NE(s0.get_backlog(), s1.get_backlog());
 	EXPECT_NE(s0.timeout_is_set(), s1.timeout_is_set());
 	EXPECT_NE(s0.get_timeout(), s1.get_timeout());

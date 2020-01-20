@@ -79,6 +79,9 @@ void net_socket::set_transport_protocol(transport_protocol tp) {
 
 	switch(tp) {
 		case transport_protocol::UDP:
+			throw std::invalid_argument(
+				"net_socket::set_transport_protocol(): Only TCP sockets supported at this time");
+			break;
 		case transport_protocol::TCP:
 			_trans_proto = tp;
 			break;
