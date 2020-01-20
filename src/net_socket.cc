@@ -13,14 +13,15 @@ net_socket::net_socket(const network_protocol net, const transport_protocol tran
 	_net_proto(net), _trans_proto(tran) {
 
 	if( _trans_proto != transport_protocol::TCP ) {
-		throw std::invalid_argument("Only TCP sockets supported at this time");
+		throw std::invalid_argument(
+			"net_socket::net_socket(): Only TCP sockets supported at this time");
 	}
 
 	if( (_net_proto != network_protocol::ANY)
 		&& (_net_proto != network_protocol::IPv4)
 		&& (_net_proto != network_protocol::IPv6) ) {
 
-		throw std::invalid_argument("Unsupported network protocol");
+		throw std::invalid_argument("net_socket::net_socket(): Unsupported network protocol");
 	}
 
 	auto seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -51,7 +52,9 @@ net_socket::~net_socket() noexcept {
 
 void net_socket::set_network_protocol(network_protocol np) {
 	if( _passive || _connected ) {
-		throw std::runtime_error("Unable to change network protocol of an open socket");
+		throw std::runtime_error(
+			"net_socket::set_network_protocol(): \
+			Unable to change network protocol of an open socket");
 	}
 
 	switch(np) {
@@ -61,14 +64,17 @@ void net_socket::set_network_protocol(network_protocol np) {
 			_net_proto = np;
 			break;
 		default:
-			throw std::invalid_argument("Unsupported network protocol");
+			throw std::invalid_argument(
+				"net_socket::set_network_protocol(): Unsupported network protocol");
 			break;
 	}
 }
 
 void net_socket::set_transport_protocol(transport_protocol tp) {
 	if( _passive || _connected ) {
-		throw std::runtime_error("Unable to change transport protocol of an open socket");
+		throw std::runtime_error(
+			"net_socket::set_transport_protocol(): \
+			Unable to change transport protocol of an open socket");
 	}
 
 	switch(tp) {
@@ -77,18 +83,22 @@ void net_socket::set_transport_protocol(transport_protocol tp) {
 			_trans_proto = tp;
 			break;
 		default:
-			throw std::invalid_argument("Unsupported transport protocol");
+			throw std::invalid_argument(
+				"net_socket::set_transport_protocol(): Unsupported transport protocol");
 			break;
 	}
 }
 
 void net_socket::set_backlog(int backlog) {
 	if( backlog < 0 ) {
-		throw std::invalid_argument("Negative backlog values not allowed");
+		throw std::invalid_argument(
+			string("net_socket::set_backlog(): Negative backlog values (")
+			+ std::to_string(backlog) + string(") not allowed"));
 	}
 
 	if( _passive ) {
-		throw std::runtime_error("Unable to change backlog of passively opened socket");
+		throw std::runtime_error(
+			"net_socket::set_backlog(): Unable to change backlog of passively opened socket");
 	}
 
 	_backlog = backlog;
@@ -105,7 +115,9 @@ double net_socket::get_timeout() const {
 
 void net_socket::set_timeout(double s) {
 	if( s < 0.0 ) {
-		throw std::invalid_argument("Negative timeout value provided");
+		throw std::invalid_argument(
+			std::string("net_socket::set_timeout(): Negative timeout value (")
+				+ std::to_string(s) + std::string(") provided"));
 	}
 
 	if( s == 0 ) {
@@ -122,7 +134,7 @@ void net_socket::set_timeout(double s) {
 
 void net_socket::listen(const std::string &host, const std::string &service) {
 	if( _sock_desc != -1 ) {
-		throw std::runtime_error("Listen called on an open socket");
+		throw std::runtime_error("net_socket::listen(): Listen called on an open socket");
 	}
 
 	struct addrinfo hints{};
@@ -146,7 +158,7 @@ void net_socket::listen(const std::string &host, const std::string &service) {
 
 	/* Get local address info */
 	if ( ( s = getaddrinfo(h, service.c_str(), &hints, &result ) ) != 0 ) {
-		throw std::runtime_error(gai_strerror(s));
+		throw std::runtime_error(string("net_socket::listen(): ") + string(gai_strerror(s)));
 	}
 
 	/* Iterate through the address list and try to perform passive open */
@@ -164,11 +176,11 @@ void net_socket::listen(const std::string &host, const std::string &service) {
 	freeaddrinfo( result );
 
 	if ( rp == nullptr ) {
-		throw std::runtime_error(strerror(errno));
+		throw std::runtime_error(string("net_socket::listen(): ") + string(strerror(errno)));
 	}
 	if ( ::listen( s, _backlog ) == -1 ) {
 		::close( s );
-		throw std::runtime_error(strerror(errno));
+		throw std::runtime_error(string("net_socket::listen(): ") + string(strerror(errno)));
 	}
 
 	_sock_desc = s;
@@ -189,7 +201,8 @@ void net_socket::listen(const unsigned short port){
 
 void net_socket::connect(const std::string &host, const std::string &service) {
 	if( _passive ) {
-		throw std::runtime_error("Unable to connect with a passively opened socket");
+		throw std::runtime_error(
+			"net_socket::connect(): Unable to connect using a passively opened socket");
 	}
 
 	struct addrinfo hints{};
@@ -204,7 +217,7 @@ void net_socket::connect(const std::string &host, const std::string &service) {
 	hints.ai_protocol = 0;
 
 	if ( ( s = getaddrinfo( host.c_str(), service.c_str(), &hints, &result ) ) != 0 ) {
-		throw std::runtime_error(strerror(errno));
+		throw std::runtime_error(string("net_socket::connect(): ") + string(strerror(errno)));
 	}
 
 	// Iterate through the address list and try to connect
@@ -221,7 +234,7 @@ void net_socket::connect(const std::string &host, const std::string &service) {
 	}
 	freeaddrinfo( result );
 	if ( rp == nullptr ) {
-		throw std::runtime_error(strerror(errno));
+		throw std::runtime_error(string("net_socket::connect(): ") + string(strerror(errno)));
 	}
 
 	_sock_desc = s;
@@ -235,7 +248,7 @@ void net_socket::connect(const std::string &host, const unsigned short port) {
 unique_ptr<net_socket> net_socket::accept() {
 	int new_s = ::accept(_sock_desc, nullptr, nullptr);
 	if( new_s == -1 ){
-		throw std::runtime_error(strerror(errno));
+		throw std::runtime_error(string("net_socket::accept(): ") + string(strerror(errno)));
 	}
 
 	unique_ptr<net_socket> ret(new net_socket(_net_proto, _trans_proto));
@@ -256,7 +269,7 @@ void net_socket::close() {
 
 ssize_t net_socket::send(const void *data, size_t max_size) const {
 	if( !_connected ) {
-		throw std::runtime_error("Unable to send on unconnected socket");
+		throw std::runtime_error("net_socket::send(): Unable to send on unconnected socket");
 	}
 
 	ssize_t ret = ::send(_sock_desc, data, max_size, 0);
@@ -277,7 +290,8 @@ ssize_t net_socket::send(const std::string &data, size_t max_size) const {
 
 ssize_t net_socket::packet_error_send(const void *data, size_t max_size) const {
 	if( !_connected ) {
-		throw std::runtime_error("Unable to send on unconnected socket");
+		throw std::runtime_error(
+			"net_socket::packet_error_send(): Unable to send on unconnected socket");
 	}
 
 	std::uniform_int_distribution<unsigned short> dist(1,100);
@@ -307,7 +321,8 @@ ssize_t net_socket::packet_error_send(const std::string &data, size_t max_size) 
 
 ssize_t net_socket::send_all(const void *data, size_t exact_size) const {
 	if( !_connected ) {
-		throw std::runtime_error("Unable to send_all on unconnected socket");
+		throw std::runtime_error(
+			"net_socket::send_all(): Unable to send_all on unconnected socket");
 	}
 
 	auto d = static_cast<const char*>(data);
@@ -325,7 +340,7 @@ ssize_t net_socket::send_all(const std::string &data) const {
 
 ssize_t net_socket::recv(void *data, size_t max_size) {
 	if( !_connected ) {
-		throw std::runtime_error("Unable to recv on unconnected socket");
+		throw std::runtime_error("net_socket::recv(): Unable to recv on unconnected socket");
 	}
 
 	if( max_size == 0 ){
@@ -377,7 +392,7 @@ ssize_t net_socket::recv(std::string &data, size_t max_size) {
 
 ssize_t net_socket::recv_all(void *data, size_t exact_size) {
 	if( !_connected ) {
-		throw std::runtime_error("Unable to recv_all on unconnected socket");
+		throw std::runtime_error("net_socket::recv_all(): Unable to recv on unconnected socket");
 	}
 
 	auto d = static_cast<char*>(data);
@@ -413,7 +428,8 @@ ssize_t net_socket::recv_all(std::string &data, size_t exact_size) {
 void net_socket::copy(const net_socket *other) {
 	if( other != nullptr ) {
 		if( _passive || other->_passive || _connected || other->_connected ) {
-			throw std::runtime_error("Unable to assign to/from an open socket");
+			throw std::runtime_error(
+				"net_socket internal error: Unable to assign to/from an open socket");
 		}
 
 		_net_proto = other->_net_proto;
@@ -457,7 +473,7 @@ int net_socket::get_af() const {
 		case IPv6: ret = AF_INET6; break;
 		case ANY: ret = AF_UNSPEC; break;
 		default:
-			throw std::runtime_error("Undefined network protocol (" 
+			throw std::runtime_error("net_socket internal error: Undefined network protocol ("
 				+ std::to_string(_net_proto) + ")");
 			break;
 	}
@@ -471,7 +487,7 @@ int net_socket::get_socktype() const {
 		case TCP: ret = SOCK_STREAM; break;
 		case UDP: ret = SOCK_DGRAM; break;
 		default:
-			throw std::runtime_error("Undefined transport protocol ("
+			throw std::runtime_error("net_socket internal error: Undefined transport protocol ("
 				+ std::to_string(_trans_proto) + ")");
 			break;
 	}
