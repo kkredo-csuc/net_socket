@@ -315,7 +315,7 @@ TEST( NetSocket, SendRecvTests ) {
 	unique_ptr<net_socket> c = create_connected_client(port);
 
 	vector<char> tx_data;
-	for( int i = 0; i < c->get_recv_size(); ++i ){
+	for( unsigned int i = 0; i < c->get_recv_size(); ++i ){
 		tx_data.push_back(rand()%256);
 	}
 	vector<char> rx_data;
@@ -376,7 +376,7 @@ TEST(NetSocket, SendAllRecvAllTests ) {
 	char tx_arr[tx_size];
 	string tx_str;
 	char val;
-	for( int i = 0; i < tx_size; ++i ){
+	for( unsigned int i = 0; i < tx_size; ++i ){
 		val = static_cast<char>(rand()%256);
 		tx_vec.push_back(val);
 		tx_arr[i] = val;
@@ -435,7 +435,7 @@ TEST(NetSocket, PacketErrorSendTests ) {
 	const unsigned int pkt_count = 10000;
 
 	// Send pkt_count copies
-	for( int i = 0; i < pkt_count; ++i ) {
+	for( unsigned int i = 0; i < pkt_count; ++i ) {
 		c->packet_error_send(&a, 1);
 	}
 
@@ -445,7 +445,7 @@ TEST(NetSocket, PacketErrorSendTests ) {
 	try{
 		c->recv_all(rx, pkt_count);
 	}
-	catch( timeout_exception ){} // Do nothing
+	catch( timeout_exception& ){} // Do nothing
 
 	// Specified drop probability +/- 1%
 	EXPECT_LT(rx.size(), pkt_count*(100-drop_prob)/100.0*1.01);
@@ -478,7 +478,7 @@ void check_and_echo_server(unique_ptr<net_socket> server) {
 			worker->recv(data);
 		}
 	}
-	catch( timeout_exception ){ } // Do nothing with timeout
+	catch( timeout_exception& ){ } // Do nothing with timeout
 }
 
 thread spawn_and_check_server(void (*func)(unique_ptr<net_socket>), const unsigned short port){

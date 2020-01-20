@@ -327,7 +327,7 @@ ssize_t net_socket::send_all(const void *data, size_t exact_size) const {
 	}
 
 	auto d = static_cast<const char*>(data);
-	ssize_t sent = 0;
+	size_t sent = 0;
 	while( sent < exact_size ) {
 		sent += send(d + sent, exact_size - sent);
 	}
