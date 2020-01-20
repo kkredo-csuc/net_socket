@@ -14,6 +14,15 @@ ssize_t net_socket::send(const vector<T> &data, size_t max_size) const {
 }
 
 template<typename T>
+ssize_t net_socket::packet_error_send(const vector<T> &data, size_t max_size) const {
+	if( max_size == 0 ) {
+		max_size = data.size()*sizeof(T);
+	}
+
+	return packet_error_send(data.data(), max_size);
+}
+
+template<typename T>
 ssize_t net_socket::send_all(const vector<T> &data) const {
 	return send_all(data.data(), data.size()*sizeof(T));
 }

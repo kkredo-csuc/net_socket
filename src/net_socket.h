@@ -54,6 +54,9 @@
 /// will be received. If you want to use the socket's receive size, use clear() first or specify
 /// the size.
 ///
+/// packet_error_send functions emulate packet losses in the network by randomly failing to send
+/// the requested data, but returning a non-error return value.
+///
 //--------------------------------------------------------------------------------------------------
 
 #ifndef __NET_SOCKET_H
@@ -62,6 +65,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <random>
 
 namespace network_socket {
 
@@ -147,6 +151,9 @@ public:
 	ssize_t send(const void *data, size_t max_size) const;
 	template<typename T> ssize_t send(const std::vector<T> &data, size_t max_size = 0) const;
 	ssize_t send(const std::string &data, size_t max_size = 0) const;
+	ssize_t packet_error_send(const void *data, size_t max_size) const;
+	template<typename T> ssize_t packet_error_send(const std::vector<T> &data, size_t max_size = 0) const;
+	ssize_t packet_error_send(const std::string &data, size_t max_size = 0) const;
 	ssize_t send_all(const void *data, size_t exact_size) const;
 	template<typename T> ssize_t send_all(const std::vector<T> &data) const;
 	ssize_t send_all(const std::string &data) const;
@@ -167,6 +174,8 @@ private:
 	bool _do_timeout{false};
 	struct timeval _timeout{};
 	size_t _recv_size{1400};
+	const unsigned short _drop_rate{15}; // % chance to drop a packet for packet_error_send
+	std::unique_ptr<std::default_random_engine> _rng;
 
 	void copy(const net_socket *other = nullptr);
 	void move(net_socket *other);

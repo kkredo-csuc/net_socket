@@ -421,6 +421,36 @@ TEST(NetSocket, SendAllRecvAllTests ) {
 
 	st.join();
 }
+
+TEST(NetSocket, PacketErrorSendTests ) {
+	unsigned short port = get_random_port();
+	std::thread st = spawn_and_check_server(check_and_echo_server, port);
+	unique_ptr<net_socket> c = create_connected_client(port);
+
+	char a = 'A';
+	const unsigned int drop_prob = 15; // 15%
+	const unsigned int pkt_count = 10000;
+
+	// Send pkt_count copies
+	for( int i = 0; i < pkt_count; ++i ) {
+		c->packet_error_send(&a, 1);
+	}
+
+	// Receive as much data as possible
+	vector<char> rx;
+	c->set_timeout(0.1);
+	try{
+		c->recv_all(rx, pkt_count);
+	}
+	catch( timeout_exception ){} // Do nothing
+
+	// Specified drop probability +/- 1%
+	EXPECT_LT(rx.size(), pkt_count*(100-drop_prob)/100.0*1.01);
+	EXPECT_GT(rx.size(), pkt_count*(100-drop_prob)/100.0*0.99);
+
+	st.join();
+}
+
 // Helper function definitions
 unsigned short get_random_port() {
 	auto seed = std::chrono::system_clock::now().time_since_epoch().count();

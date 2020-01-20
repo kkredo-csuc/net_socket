@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <netdb.h>
 #include <unistd.h>
+#include <chrono>
 
 using std::string;
 using std::unique_ptr;
@@ -21,6 +22,9 @@ net_socket::net_socket(const network_protocol net, const transport_protocol tran
 
 		throw std::invalid_argument("Unsupported network protocol");
 	}
+
+	auto seed = std::chrono::system_clock::now().time_since_epoch().count();
+	_rng = unique_ptr<std::default_random_engine>(new std::default_random_engine(seed));
 }
 
 net_socket::net_socket(const net_socket& other) : net_socket() {
@@ -269,6 +273,36 @@ ssize_t net_socket::send(const std::string &data, size_t max_size) const {
 	}
 
 	return send(data.data(), max_size);
+}
+
+ssize_t net_socket::packet_error_send(const void *data, size_t max_size) const {
+	if( !_connected ) {
+		throw std::runtime_error("Unable to send on unconnected socket");
+	}
+
+	std::uniform_int_distribution<unsigned short> dist(1,100);
+
+	ssize_t ret;
+	if( dist(*_rng) <= _drop_rate ) {
+		ret = max_size;
+	}
+	else {
+		ret = ::send(_sock_desc, data, max_size, 0);
+	}
+
+	if( ret == -1 ) {
+		throw std::runtime_error(string("net_socket::send(): ")+string(strerror(errno)));
+	}
+
+	return ret;
+}
+
+ssize_t net_socket::packet_error_send(const std::string &data, size_t max_size) const {
+	if( max_size == 0 ) {
+		max_size = data.length();
+	}
+
+	return packet_error_send(data.data(), max_size);
 }
 
 ssize_t net_socket::send_all(const void *data, size_t exact_size) const {
