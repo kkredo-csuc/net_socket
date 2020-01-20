@@ -6,7 +6,7 @@ using std::vector;
 
 template<typename T>
 ssize_t net_socket::send(const vector<T> &data, size_t max_size) const {
-	if( max_size == 0 ) {
+	if( (max_size == 0) || (max_size > data.size()*sizeof(T)) ) {
 		max_size = data.size()*sizeof(T);
 	}
 
@@ -15,7 +15,7 @@ ssize_t net_socket::send(const vector<T> &data, size_t max_size) const {
 
 template<typename T>
 ssize_t net_socket::packet_error_send(const vector<T> &data, size_t max_size) const {
-	if( max_size == 0 ) {
+	if( (max_size == 0) || (max_size > data.size()*sizeof(T)) ) {
 		max_size = data.size()*sizeof(T);
 	}
 

@@ -284,7 +284,7 @@ ssize_t net_socket::send(const void *data, size_t max_size) const {
 }
 
 ssize_t net_socket::send(const std::string &data, size_t max_size) const {
-	if( max_size == 0 ) {
+	if( (max_size == 0) || (max_size > data.length()) ) {
 		max_size = data.length();
 	}
 
@@ -313,7 +313,7 @@ ssize_t net_socket::packet_error_send(const void *data, size_t max_size) const {
 }
 
 ssize_t net_socket::packet_error_send(const std::string &data, size_t max_size) const {
-	if( max_size == 0 ) {
+	if( (max_size == 0) || (max_size > data.length()) ) {
 		max_size = data.length();
 	}
 
