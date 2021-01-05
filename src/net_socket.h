@@ -66,6 +66,7 @@
 #include <memory>
 #include <vector>
 #include <random>
+#include <stdexcept>
 
 namespace network_socket {
 
