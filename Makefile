@@ -1,4 +1,5 @@
-CXX=clang++
+#CXX=clang++
+CXX=g++
 CXXFLAGS=-Wall -std=c++11 -I src
 LDLIBS=-lgtest_main -lgtest -lpthread
 CLANG_TIDY=clang-tidy
