@@ -6,6 +6,7 @@ CLANG_TIDY=clang-tidy
 
 TEST_EXE=test/net_socket_tests
 TEST_OBJ=src/net_socket.o
+LIB=libnet_socket.a
 
 .PHONY: test
 test: $(TEST_EXE) $(TEST_OBJ)
@@ -13,6 +14,12 @@ test: $(TEST_EXE) $(TEST_OBJ)
 	@$(MAKE) -s clean
 
 $(TEST_EXE): $(TEST_OBJ)
+
+.PHONY: lib
+lib: $(LIB)
+
+$(LIB): $(TEST_OBJ)
+	ar -cvq $(LIB) $(TEST_OBJ)
 
 .PHONY: tidy
 tidy:
@@ -24,5 +31,5 @@ doc:
 
 .PHONY: clean
 clean:
-	rm -f $(TEST_EXE) $(TEST_OBJ)
+	rm -f $(TEST_EXE) $(TEST_OBJ) $(LIB)
 	rm -rf doc
