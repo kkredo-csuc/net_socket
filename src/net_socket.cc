@@ -427,6 +427,32 @@ void net_socket::close() {
 	}
 }
 
+address net_socket::get_local_address() const {
+	if( !is_connected() && !is_passively_opened() )
+		throw std::runtime_error("Socket must be connected or passively opened to get local address");
+
+	struct sockaddr_storage sa;
+	socklen_t len = sizeof(sa);
+	int ret = getsockname(_sock_desc, reinterpret_cast<struct sockaddr*>(&sa), &len);
+	if( (ret != 0) || (len > sizeof(sa)) )
+		throw std::runtime_error("Error retrieving local address");
+
+	return address(sa);
+}
+
+address net_socket::get_remote_address() const {
+	if( !is_connected() )
+		throw std::runtime_error("Socket must be connected to get remote address");
+
+	struct sockaddr_storage sa;
+	socklen_t len = sizeof(sa);
+	int ret = getpeername(_sock_desc, reinterpret_cast<struct sockaddr*>(&sa), &len);
+	if( (ret != 0) || (len > sizeof(sa)) )
+		throw std::runtime_error("Error retrieving remote address");
+
+	return address(sa);
+}
+
 ssize_t net_socket::send(const void *data, size_t max_size) const {
 	if( !_connected ) {
 		throw std::runtime_error("net_socket::send(): Unable to send on unconnected socket");

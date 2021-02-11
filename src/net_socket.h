@@ -180,6 +180,12 @@ public:
 	/// subsequent calls to accept. The returned socket is connected and ready to use.
 	std::unique_ptr<net_socket> accept();
 
+	// Socket address (name) information.
+	// Exception thrown for local if socket is not connected and not passively opened.
+	address get_local_address() const;
+	// Exception thrown for remote if socket is not connected.
+	address get_remote_address() const;
+
 	ssize_t send(const void *data, size_t max_size) const;
 	template<typename T> ssize_t send(const std::vector<T> &data, size_t max_size = 0) const;
 	ssize_t send(const std::string &data, size_t max_size = 0) const;

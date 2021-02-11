@@ -18,10 +18,14 @@ using network_socket::timeout_exception;
 using network_socket::address;
 
 std::atomic<bool> server_ready_mutex(false);
+std::atomic<bool> server_accepted_mutex(false);
+address server_local_address;
+address server_remote_address;
 
 // Helper functions
 unsigned short get_random_port();
 void check_and_echo_server(unique_ptr<net_socket> server);
+void null_server(unique_ptr<net_socket> server);
 thread spawn_and_check_server(
 	void (*func)(unique_ptr<net_socket> server),
 	unsigned short port
@@ -457,6 +461,19 @@ TEST(NetSocket, PacketErrorSendTests ) {
 	st.join();
 }
 
+TEST(NetSocket, LocalRemoteAddressTests ) {
+	unsigned short port = get_random_port();
+	std::thread st = spawn_and_check_server(null_server, port);
+	unique_ptr<net_socket> c = create_connected_client(port);
+	while(!server_accepted_mutex) {
+		std::this_thread::yield();
+	}
+	EXPECT_EQ(server_local_address, c->get_remote_address());
+	EXPECT_EQ(server_remote_address, c->get_local_address());
+
+	st.join();
+}
+
 TEST(NetSocket, AddressClassesTests ) {
 	struct sockaddr_in addr4;
 	memset(&addr4, 0, sizeof(addr4));
@@ -567,6 +584,15 @@ unsigned short get_random_port() {
 	std::default_random_engine generator(seed);
 	std::uniform_int_distribution<unsigned short> dist(5000,50000);
 	return dist(generator);
+}
+
+void null_server(unique_ptr<net_socket> server) {
+	unique_ptr<net_socket> worker = server->accept();
+
+	server_local_address = worker->get_local_address();
+	server_remote_address = worker->get_remote_address();
+
+	server_accepted_mutex = true;
 }
 
 void check_and_echo_server(unique_ptr<net_socket> server) {
