@@ -188,19 +188,24 @@ public:
 
 	ssize_t send(const void *data, size_t max_size) const;
 	template<typename T> ssize_t send(const std::vector<T> &data, size_t max_size = 0) const;
-	ssize_t send(const std::string &data, size_t max_size = 0) const;
+	ssize_t send(const std::string &data, size_t max_size) const;
+	ssize_t send(const std::string &data) const; // Also sends NULL
 	ssize_t packet_error_send(const void *data, size_t max_size) const;
 	template<typename T> ssize_t packet_error_send(const std::vector<T> &data, size_t max_size = 0) const;
-	ssize_t packet_error_send(const std::string &data, size_t max_size = 0) const;
+	ssize_t packet_error_send(const std::string &data, size_t max_size) const;
+	ssize_t packet_error_send(const std::string &data) const;
 	ssize_t send_all(const void *data, size_t exact_size) const;
 	template<typename T> ssize_t send_all(const std::vector<T> &data) const;
-	ssize_t send_all(const std::string &data) const;
-	ssize_t recv(void *data, size_t max_size);
+	ssize_t send_all(const std::string &data, size_t max_size) const;
+	ssize_t send_all(const std::string &data) const; // Also sends NULL
+	ssize_t recv(void *data, size_t max_size, int flags = 0);
 	template<typename T> ssize_t recv(std::vector<T> &data, size_t max_size = 0);
-	ssize_t recv(std::string &data, size_t max_size = 0);
+	ssize_t recv(std::string &data, size_t max_size);
+	ssize_t recv(std::string &data); // Attempt to recv untill NULL
 	ssize_t recv_all(void *data, size_t exact_size);
+	ssize_t recv_all(std::string &data, size_t exact_size);
+	ssize_t recv_all(std::string &data); // recv untill NULL
 	template<typename T> ssize_t recv_all(std::vector<T> &data, size_t exact_size = 0);
-	ssize_t recv_all(std::string &data, size_t exact_size = 0);
 
 private:
 	int _sock_desc{-1};

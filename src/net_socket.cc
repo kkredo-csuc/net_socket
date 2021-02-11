@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <chrono>
+#include <algorithm>
 #include <arpa/inet.h>
 
 using std::string;
@@ -467,11 +468,15 @@ ssize_t net_socket::send(const void *data, size_t max_size) const {
 }
 
 ssize_t net_socket::send(const std::string &data, size_t max_size) const {
-	if( (max_size == 0) || (max_size > data.length()) ) {
+	if( max_size > data.length() ) {
 		max_size = data.length();
 	}
 
 	return send(data.data(), max_size);
+}
+
+ssize_t net_socket::send(const std::string &data) const {
+	return send(data.data(), data.length()+1);
 }
 
 ssize_t net_socket::packet_error_send(const void *data, size_t max_size) const {
@@ -496,11 +501,15 @@ ssize_t net_socket::packet_error_send(const void *data, size_t max_size) const {
 }
 
 ssize_t net_socket::packet_error_send(const std::string &data, size_t max_size) const {
-	if( (max_size == 0) || (max_size > data.length()) ) {
+	if( max_size > data.length() ) {
 		max_size = data.length();
 	}
 
 	return packet_error_send(data.data(), max_size);
+}
+
+ssize_t net_socket::packet_error_send(const std::string &data) const {
+	return packet_error_send(data.data(), data.length()+1);
 }
 
 ssize_t net_socket::send_all(const void *data, size_t exact_size) const {
@@ -518,11 +527,19 @@ ssize_t net_socket::send_all(const void *data, size_t exact_size) const {
 	return sent;
 }
 
-ssize_t net_socket::send_all(const std::string &data) const {
-	return send_all(data.data(), data.length());
+ssize_t net_socket::send_all(const std::string &data, size_t max_size) const {
+	if( max_size > data.length() ) {
+		max_size = data.length();
+	}
+
+	return send_all(data.data(), max_size);
 }
 
-ssize_t net_socket::recv(void *data, size_t max_size) {
+ssize_t net_socket::send_all(const std::string &data) const {
+	return send_all(data.data(), data.length()+1);
+}
+
+ssize_t net_socket::recv(void *data, size_t max_size, int flags) {
 	if( !_connected ) {
 		throw std::runtime_error("net_socket::recv(): Unable to recv on unconnected socket");
 	}
@@ -559,19 +576,36 @@ ssize_t net_socket::recv(void *data, size_t max_size) {
 }
 
 ssize_t net_socket::recv(std::string &data, size_t max_size) {
+	ssize_t ss;
 	if( max_size == 0 ) {
-		if( data.empty() ) {
-			max_size = _recv_size;
-		}
-		else {
-			max_size = data.length();
-		}
+		data.clear();
+		ss = 0;
+	}
+	else{
+		char tmp[max_size];
+		ss = recv(tmp, max_size);
+		data.assign(tmp, tmp + ss);
+	}
+	return ss;
+}
+
+ssize_t net_socket::recv(std::string &data) {
+	ssize_t ret;
+	char tmp[_recv_size];
+	ssize_t ss = recv(tmp, _recv_size, MSG_PEEK);
+	data.assign(tmp, tmp + ss);
+	size_t pos = data.find('\0');
+	if( pos != string::npos ) {
+		recv(tmp, pos+1, 0);
+		data.resize(pos);
+		ret = pos+1;
+	}
+	else {
+		data.clear();
+		ret = 0;
 	}
 
-	char tmp[max_size];
-	ssize_t ss = recv(tmp, max_size);
-	data.assign(tmp, tmp + ss);
-	return ss;
+	return ret;
 }
 
 ssize_t net_socket::recv_all(void *data, size_t exact_size) {
@@ -593,19 +627,44 @@ ssize_t net_socket::recv_all(void *data, size_t exact_size) {
 }
 
 ssize_t net_socket::recv_all(std::string &data, size_t exact_size) {
+	ssize_t ret;
 	if( exact_size == 0 ) {
-		if( data.empty() ) {
-			exact_size = _recv_size;
-		}
-		else {
-			exact_size = data.length();
-		}
+		ret = 0;
+		data.clear();
+	}
+	else {
+		char tmp[exact_size];
+		ret = recv_all(tmp, exact_size);
+		data.assign(tmp, tmp + ret);
 	}
 
-	char tmp[exact_size];
-	ssize_t ss = recv_all(tmp, exact_size);
-	data.assign(tmp, tmp + ss);
-	return ss;
+	return ret;
+}
+
+ssize_t net_socket::recv_all(std::string &data) {
+	ssize_t ret;
+	char tmp[_recv_size];
+	size_t rs = recv(tmp, sizeof(tmp), MSG_PEEK);
+	// Try one more time after a timeout period if NULL isn't found and if timeout set
+	if( _do_timeout && (std::find(tmp, tmp+rs, '\0') == (tmp + _recv_size)) ) {
+		struct timeval tmp_tv = _timeout;
+		select(0, nullptr, nullptr, nullptr, &tmp_tv);
+		rs = recv(tmp, sizeof(tmp), MSG_PEEK);
+	}
+
+	auto itr = std::find(tmp, tmp+rs, '\0');
+	// NULL found
+	if( itr != (tmp + _recv_size) ) {
+		ret = std::distance(tmp, itr) + 1;
+		recv(tmp, ret);
+		data.assign(tmp, tmp + ret);
+	}
+	else {
+		ret = 0;
+		data.clear();
+	}
+
+	return ret;
 }
 
 // Private members
