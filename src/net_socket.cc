@@ -13,6 +13,7 @@ namespace network_socket {
 
 address::address() {
 	memset(&addr, 0, sizeof(addr));
+	addr.ss_family = AF_INET;
 }
 
 address::address(const struct sockaddr& s) {
