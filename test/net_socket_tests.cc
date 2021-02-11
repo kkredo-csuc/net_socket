@@ -2,7 +2,9 @@
 #include <thread>
 #include <random>
 #include <atomic>
+#include <sstream>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include "net_socket.h"
 
 using std::runtime_error;
@@ -13,6 +15,8 @@ using std::string;
 using std::vector;
 using network_socket::net_socket;
 using network_socket::timeout_exception;
+using network_socket::ipv4_address;
+using network_socket::ipv6_address;
 
 std::atomic<bool> server_ready_mutex(false);
 
@@ -452,6 +456,89 @@ TEST(NetSocket, PacketErrorSendTests ) {
 	EXPECT_GT(rx.size(), pkt_count*(100-drop_prob)/100.0*0.99);
 
 	st.join();
+}
+
+TEST(NetSocket, AddressClassesTests ) {
+	struct sockaddr_in addr4;
+	memset(&addr4, 0, sizeof(addr4));
+	addr4.sin_family = AF_INET;
+	addr4.sin_port = htons(12345);
+	addr4.sin_addr.s_addr = htonl(0xC0A80BD4); // 192.168.11.212
+	ipv4_address a4(addr4);
+	EXPECT_TRUE(a4.is_ipv4());
+	EXPECT_FALSE(a4.is_ipv6());
+	std::stringstream ss;
+	ss << a4;
+	char name4[INET_ADDRSTRLEN];
+	string result = string(inet_ntop(addr4.sin_family, &addr4.sin_addr, name4, sizeof(name4))) + string(":12345");
+	EXPECT_EQ(ss.str(), result);
+
+	struct sockaddr_in6 addr6;
+	memset(&addr6, 0, sizeof(addr6));
+	addr6.sin6_family = AF_INET6;
+	addr6.sin6_port = htons(34567);
+	// 01:ABCD:1234:FEDC:0:6789:A5A5:4567 in network byte order
+	unsigned char tmp[16] =
+		{0x00, 0x01, 0xAB, 0xCD,
+		 0x12, 0x34, 0xFE, 0xDC,
+		 0x00, 0x00, 0x67, 0x89,
+		 0xA5, 0xA5, 0x45, 0x67};
+	memcpy(&addr6.sin6_addr.s6_addr, &tmp, sizeof(tmp));
+	ipv6_address a6(addr6);
+	EXPECT_FALSE(a6.is_ipv4());
+	EXPECT_TRUE(a6.is_ipv6());
+	ss.str("");
+	ss << a6;
+	char name6[INET6_ADDRSTRLEN];
+	result = string("[") + string(inet_ntop(addr6.sin6_family, &addr6.sin6_addr, name6, sizeof(name6))) + string("]:34567");
+	EXPECT_EQ(ss.str(), result);
+
+	addr4.sin_family++;
+	EXPECT_THROW(ipv4_address t(addr4), runtime_error);
+	addr6.sin6_family++;
+	EXPECT_THROW(ipv6_address t(addr6), runtime_error);
+
+	ipv4_address b4 = a4;
+	EXPECT_TRUE(b4 == a4);
+	addr4.sin_family--;
+	b4 = addr4;
+	EXPECT_TRUE(b4 == a4);
+	struct sockaddr_in t4 = b4.get_sockaddr();
+	EXPECT_EQ(t4.sin_family, addr4.sin_family);
+	EXPECT_EQ(t4.sin_port, addr4.sin_port);
+	EXPECT_EQ(memcmp(&t4.sin_addr, &addr4.sin_addr, sizeof(addr4.sin_addr)),0);
+	b4.set_port(b4.get_port()+1);
+	EXPECT_FALSE(b4 == a4);
+	string s = b4.get_address_string();
+	s[1] = '3';
+	b4.set_address(s);
+	EXPECT_FALSE(b4 == a4);
+	EXPECT_EQ(b4.get_address_string(), "132.168.11.212");
+	EXPECT_THROW(b4.set_address("34"), runtime_error);
+	EXPECT_EQ(b4.get_address_string(), "132.168.11.212"); // Make sure no changes are made
+	EXPECT_THROW(b4.set_address("280.12.13445.56"), runtime_error);
+
+	ipv6_address b6 = a6;
+	EXPECT_TRUE(b6 == a6);
+	addr6.sin6_family--;
+	b6 = addr6;
+	EXPECT_TRUE(b6 == a6);
+	struct sockaddr_in6 t6 = b6.get_sockaddr();
+	EXPECT_EQ(t6.sin6_family, addr6.sin6_family);
+	EXPECT_EQ(t6.sin6_port, addr6.sin6_port);
+	EXPECT_EQ(t6.sin6_flowinfo, addr6.sin6_flowinfo);
+	EXPECT_EQ(t6.sin6_scope_id, addr6.sin6_scope_id);
+	EXPECT_EQ(memcmp(&t6.sin6_addr, &addr6.sin6_addr, sizeof(addr6.sin6_addr)),0);
+	b6.set_port(b6.get_port()+1);
+	EXPECT_FALSE(b6 == a6);
+	s = b6.get_address_string();
+	s[0] = '4';
+	b6.set_address(s);
+	EXPECT_FALSE(b6 == a6);
+	EXPECT_THROW(b4.set_address(":1"), runtime_error);
+	EXPECT_THROW(b4.set_address("345:4324:ABBB"), runtime_error);
+	EXPECT_THROW(b4.set_address("345::4324::ABBB"), runtime_error);
+
 }
 
 // Helper function definitions

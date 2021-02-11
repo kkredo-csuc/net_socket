@@ -67,6 +67,7 @@
 #include <vector>
 #include <random>
 #include <stdexcept>
+#include <netinet/ip.h>
 
 namespace network_socket {
 
@@ -74,6 +75,52 @@ namespace network_socket {
 class timeout_exception : public std::runtime_error {
 public:
 	timeout_exception() : runtime_error("TIMEOUT!") {};
+};
+
+class address {
+public:
+	bool is_ipv4() const {return ipv4;}
+	bool is_ipv6() const {return !ipv4;}
+	virtual in_port_t get_port() const = 0;
+	virtual void set_port(in_port_t) = 0;
+	virtual std::string get_address_string() const = 0;
+	virtual void set_address(const std::string&) = 0;
+protected:
+	address(bool ipv4) : ipv4(ipv4) {}
+private:
+	bool ipv4;
+};
+
+class ipv4_address : public address {
+public:
+	ipv4_address();
+	ipv4_address(const struct sockaddr_in&);
+	ipv4_address& operator=(const struct sockaddr_in&);
+	in_port_t get_port() const;
+	void set_port(in_port_t);
+	std::string get_address_string() const;
+	void set_address(const std::string&);
+	struct sockaddr_in get_sockaddr() const {return addr;}
+	friend bool operator==(const ipv4_address&, const ipv4_address&);
+
+private:
+	struct sockaddr_in addr;
+};
+
+class ipv6_address : public address {
+public:
+	ipv6_address();
+	ipv6_address(const struct sockaddr_in6&);
+	ipv6_address& operator=(const struct sockaddr_in6&);
+	in_port_t get_port() const;
+	void set_port(in_port_t);
+	std::string get_address_string() const;
+	void set_address(const std::string&);
+	struct sockaddr_in6 get_sockaddr() const {return addr;}
+	friend bool operator==(const ipv6_address&, const ipv6_address&);
+
+private:
+	struct sockaddr_in6 addr;
 };
 
 class net_socket{
@@ -183,6 +230,10 @@ private:
 	int get_af() const;
 	int get_socktype() const;
 };
+
+// Helper output operators
+std::ostream& operator<<(std::ostream&, const ipv4_address&);
+std::ostream& operator<<(std::ostream&, const ipv6_address&);
 
 } // namespace network_socket
 

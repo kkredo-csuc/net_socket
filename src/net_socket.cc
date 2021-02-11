@@ -1,13 +1,95 @@
 #include "net_socket.h"
+#include <iostream>
 #include <stdexcept>
 #include <netdb.h>
 #include <unistd.h>
 #include <chrono>
+#include <arpa/inet.h>
 
 using std::string;
 using std::unique_ptr;
 
 namespace network_socket {
+
+ipv4_address::ipv4_address() : address(true) {
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+}
+
+ipv4_address::ipv4_address(const struct sockaddr_in& a) : address(true) {
+	*this = a;
+}
+
+ipv4_address& ipv4_address::operator=(const struct sockaddr_in& a) {
+	if( a.sin_family != AF_INET )
+		throw std::runtime_error("Invalid address provided to ipv4_address");
+
+	memcpy(&addr, &a, sizeof(a));
+
+	return *this;
+}
+
+in_port_t ipv4_address::get_port() const {
+	return ntohs(addr.sin_port);
+}
+
+void ipv4_address::set_port(in_port_t p) {
+	addr.sin_port = htons(p);
+}
+
+string ipv4_address::get_address_string() const {
+	char name[INET_ADDRSTRLEN];
+	inet_ntop(addr.sin_family, &addr.sin_addr, name, sizeof(name));
+	return string(name);
+}
+
+void ipv4_address::set_address(const string& s) {
+	struct in_addr tmp;
+	int ret = inet_pton(AF_INET, s.data(), &tmp);
+	if( ret != 1 )
+		throw std::runtime_error(string("Invalid IPv4 address (") + s + string(")"));
+	addr.sin_addr.s_addr = tmp.s_addr;
+}
+
+ipv6_address::ipv6_address() : address(false) {
+	memset(&addr, 0, sizeof(addr));
+	addr.sin6_family = AF_INET6;
+}
+
+ipv6_address::ipv6_address(const struct sockaddr_in6& a) : address(false) {
+	*this = a;
+}
+
+ipv6_address& ipv6_address::operator=(const struct sockaddr_in6& a) {
+	if( a.sin6_family != AF_INET6 )
+		throw std::runtime_error("Invalid address provided to ipv6_address");
+
+	memcpy(&addr, &a, sizeof(a));
+
+	return *this;
+}
+
+in_port_t ipv6_address::get_port() const {
+	return ntohs(addr.sin6_port);
+}
+
+void ipv6_address::set_port(in_port_t p) {
+	addr.sin6_port = htons(p);
+}
+
+string ipv6_address::get_address_string() const {
+	char name[INET6_ADDRSTRLEN];
+	inet_ntop(addr.sin6_family, &addr.sin6_addr, name, sizeof(name));
+	return string(name);
+}
+
+void ipv6_address::set_address(const string& s) {
+	struct in6_addr tmp;
+	int ret = inet_pton(AF_INET6, s.data(), &tmp);
+	if( ret != 1 )
+		throw std::runtime_error(string("Invalid IPv6 address (") + s + string(")"));
+	memcpy(&addr.sin6_addr, &tmp, sizeof(tmp));
+}
 
 net_socket::net_socket(const network_protocol net, const transport_protocol tran) :
 	_net_proto(net), _trans_proto(tran) {
@@ -494,6 +576,30 @@ int net_socket::get_socktype() const {
 	}
 
 	return ret;
+}
+
+std::ostream& operator<<(std::ostream& s, const ipv4_address& a) {
+	s << a.get_address_string() << ":" << a.get_port();
+	return s;
+}
+
+std::ostream& operator<<(std::ostream& s, const ipv6_address& a) {
+	s << "[" << a.get_address_string() << "]:" << a.get_port();
+	return s;
+}
+
+bool operator==(const ipv4_address& a, const ipv4_address& b) {
+	return (     a.addr.sin_family == b.addr.sin_family)
+	    && (       a.addr.sin_port == b.addr.sin_port)
+	    && (a.addr.sin_addr.s_addr == b.addr.sin_addr.s_addr);
+}
+
+bool operator==(const ipv6_address& a, const ipv6_address& b) {
+	return (     a.addr.sin6_family == b.addr.sin6_family)
+	    && (       a.addr.sin6_port == b.addr.sin6_port)
+	    && (   a.addr.sin6_flowinfo == b.addr.sin6_flowinfo)
+	    && !memcmp(&a.addr.sin6_addr.s6_addr, &b.addr.sin6_addr.s6_addr, sizeof(struct in6_addr))
+	    && (   a.addr.sin6_scope_id == b.addr.sin6_scope_id);
 }
 
 } // namespace network_socket
