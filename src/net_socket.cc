@@ -11,84 +11,158 @@ using std::unique_ptr;
 
 namespace network_socket {
 
-ipv4_address::ipv4_address() : address(true) {
+address::address() {
 	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
 }
 
-ipv4_address::ipv4_address(const struct sockaddr_in& a) : address(true) {
-	*this = a;
+address::address(const struct sockaddr& s) {
+	*this = s;
 }
 
-ipv4_address& ipv4_address::operator=(const struct sockaddr_in& a) {
-	if( a.sin_family != AF_INET )
-		throw std::runtime_error("Invalid address provided to ipv4_address");
+address::address(const struct sockaddr_storage& s) {
+	*this = s;
+}
 
-	memcpy(&addr, &a, sizeof(a));
+address::address(const struct sockaddr_in& s) {
+	*this = s;
+}
+
+address::address(const struct sockaddr_in6& s) {
+	*this = s;
+}
+
+address::address(const address& other) {
+	if( this != &other ) {
+		*this = other;
+	}
+}
+
+address& address::operator=(const address& other) {
+	addr = other.get_sockaddr();
 
 	return *this;
 }
 
-in_port_t ipv4_address::get_port() const {
-	return ntohs(addr.sin_port);
-}
+address& address::operator=(const struct sockaddr& s) {
+	if( s.sa_family != AF_INET )
+		throw std::runtime_error("Invalid family in assignment to address");
 
-void ipv4_address::set_port(in_port_t p) {
-	addr.sin_port = htons(p);
-}
-
-string ipv4_address::get_address_string() const {
-	char name[INET_ADDRSTRLEN];
-	inet_ntop(addr.sin_family, &addr.sin_addr, name, sizeof(name));
-	return string(name);
-}
-
-void ipv4_address::set_address(const string& s) {
-	struct in_addr tmp;
-	int ret = inet_pton(AF_INET, s.data(), &tmp);
-	if( ret != 1 )
-		throw std::runtime_error(string("Invalid IPv4 address (") + s + string(")"));
-	addr.sin_addr.s_addr = tmp.s_addr;
-}
-
-ipv6_address::ipv6_address() : address(false) {
 	memset(&addr, 0, sizeof(addr));
-	addr.sin6_family = AF_INET6;
-}
-
-ipv6_address::ipv6_address(const struct sockaddr_in6& a) : address(false) {
-	*this = a;
-}
-
-ipv6_address& ipv6_address::operator=(const struct sockaddr_in6& a) {
-	if( a.sin6_family != AF_INET6 )
-		throw std::runtime_error("Invalid address provided to ipv6_address");
-
-	memcpy(&addr, &a, sizeof(a));
+	memcpy(&addr, &s, sizeof(s));
 
 	return *this;
 }
 
-in_port_t ipv6_address::get_port() const {
-	return ntohs(addr.sin6_port);
+address& address::operator=(const struct sockaddr_storage& s) {
+	if( (s.ss_family != AF_INET) && (s.ss_family != AF_INET6) )
+		throw std::runtime_error("Invalid family in assignment to address");
+
+	memcpy(&addr, &s, sizeof(s));
+
+	return *this;
 }
 
-void ipv6_address::set_port(in_port_t p) {
-	addr.sin6_port = htons(p);
+address& address::operator=(const struct sockaddr_in& s) {
+	if( s.sin_family != AF_INET )
+		throw std::runtime_error("sockaddr_in without family AF_INET in assignment to adddress");
+
+	memset(&addr, 0, sizeof(addr));
+	memcpy(&addr, &s, sizeof(s));
+
+	return *this;
 }
 
-string ipv6_address::get_address_string() const {
-	char name[INET6_ADDRSTRLEN];
-	inet_ntop(addr.sin6_family, &addr.sin6_addr, name, sizeof(name));
-	return string(name);
+address& address::operator=(const struct sockaddr_in6& s) {
+	if( s.sin6_family != AF_INET6 )
+		throw std::runtime_error("sockaddr_in6 without family AF_INET6 in assignment to adddress");
+
+	memset(&addr, 0, sizeof(addr));
+	memcpy(&addr, &s, sizeof(s));
+
+	return *this;
 }
 
-void ipv6_address::set_address(const string& s) {
-	struct in6_addr tmp;
-	int ret = inet_pton(AF_INET6, s.data(), &tmp);
-	if( ret != 1 )
-		throw std::runtime_error(string("Invalid IPv6 address (") + s + string(")"));
-	memcpy(&addr.sin6_addr, &tmp, sizeof(tmp));
+bool address::is_ipv4() const {return addr.ss_family == AF_INET;}
+
+bool address::is_ipv6() const {return addr.ss_family == AF_INET6;}
+
+in_port_t address::get_port() const {
+	in_port_t ret;
+	if( addr.ss_family == AF_INET ) {
+		const struct sockaddr_in* p = reinterpret_cast<const struct sockaddr_in*>(&addr);
+		ret = ntohs(p->sin_port);
+	}
+	else {
+		const struct sockaddr_in6* p = reinterpret_cast<const struct sockaddr_in6*>(&addr);
+		ret = ntohs(p->sin6_port);
+	}
+
+	return ret;
+}
+
+void address::set_port(in_port_t num) {
+	if( addr.ss_family == AF_INET ) {
+		struct sockaddr_in* p = reinterpret_cast<struct sockaddr_in*>(&addr);
+		p->sin_port = htons(num);
+	}
+	else {
+		struct sockaddr_in6* p = reinterpret_cast<struct sockaddr_in6*>(&addr);
+		p->sin6_port = htons(num);
+	}
+}
+
+string address::get_address() const {
+	string ret;
+	if( addr.ss_family == AF_INET ) {
+		char name[INET_ADDRSTRLEN];
+		const struct sockaddr_in* a4 = reinterpret_cast<const struct sockaddr_in*>(&addr);
+		inet_ntop(addr.ss_family, &a4->sin_addr, name, sizeof(name));
+		ret = name;
+	}
+	else {
+		char name[INET6_ADDRSTRLEN];
+		const struct sockaddr_in6* a6 = reinterpret_cast<const struct sockaddr_in6*>(&addr);
+		inet_ntop(addr.ss_family, &a6->sin6_addr, name, sizeof(name));
+		ret = name;
+	}
+
+	return ret;
+}
+
+void address::set_address(const string& s) {
+	struct in_addr tmp4;
+	struct in6_addr tmp6;
+	int is4 = inet_pton(AF_INET, s.data(), &tmp4);
+	int is6 = inet_pton(AF_INET6, s.data(), &tmp6);
+	struct sockaddr_in* p4 = reinterpret_cast<struct sockaddr_in*>(&addr);
+	struct sockaddr_in6* p6 = reinterpret_cast<struct sockaddr_in6*>(&addr);
+	in_port_t old_port;
+
+	if( (is4 != 1) && (is6 != 1) )
+		throw std::runtime_error(string("Invalid address (") + s + string(") in set_address"));
+
+	if( is4 == 1 ) {
+		// Reset structure on address family change
+		if( addr.ss_family != AF_INET ) {
+			old_port = p6->sin6_port;
+			memset(&addr, 0, sizeof(addr));
+			addr.ss_family = AF_INET;
+			p4->sin_port = old_port;
+		}
+
+		memcpy(&p4->sin_addr, &tmp4, sizeof(tmp4));
+	}
+	else {
+		// Reset structure on address family change
+		if( addr.ss_family != AF_INET6 ) {
+			old_port = p4->sin_port;
+			memset(&addr, 0, sizeof(addr));
+			addr.ss_family = AF_INET6;
+			p6->sin6_port = old_port;
+		}
+
+		memcpy(&p6->sin6_addr, &tmp6, sizeof(tmp6));
+	}
 }
 
 net_socket::net_socket(const network_protocol net, const transport_protocol tran) :
@@ -578,28 +652,40 @@ int net_socket::get_socktype() const {
 	return ret;
 }
 
-std::ostream& operator<<(std::ostream& s, const ipv4_address& a) {
-	s << a.get_address_string() << ":" << a.get_port();
+std::ostream& operator<<(std::ostream& s, const address& a) {
+	if( a.is_ipv4() )
+		s << a.get_address() << ":" << a.get_port();
+	else
+		s << "[" << a.get_address() << "]:" << a.get_port();
+
 	return s;
 }
 
-std::ostream& operator<<(std::ostream& s, const ipv6_address& a) {
-	s << "[" << a.get_address_string() << "]:" << a.get_port();
-	return s;
+bool operator==(const address& a, const address& b) {
+	bool ret;
+	if( a.is_ipv4() != b.is_ipv4() ) {
+		ret = false;
+	}
+	else if( a.is_ipv4() ) {
+		const struct sockaddr_in* a4 = reinterpret_cast<const struct sockaddr_in*>(&a.addr);
+		const struct sockaddr_in* b4 = reinterpret_cast<const struct sockaddr_in*>(&b.addr);
+		ret =  (     a4->sin_family == b4->sin_family)
+		    && (       a4->sin_port == b4->sin_port)
+		    && (a4->sin_addr.s_addr == b4->sin_addr.s_addr);
+	}
+	else {
+		const struct sockaddr_in6* a6 = reinterpret_cast<const struct sockaddr_in6*>(&a.addr);
+		const struct sockaddr_in6* b6 = reinterpret_cast<const struct sockaddr_in6*>(&b.addr);
+		return (     a6->sin6_family == b6->sin6_family)
+		    && (       a6->sin6_port == b6->sin6_port)
+		    && (   a6->sin6_flowinfo == b6->sin6_flowinfo)
+		    && !memcmp(&a6->sin6_addr.s6_addr, &b6->sin6_addr.s6_addr, sizeof(struct in6_addr))
+		    && (   a6->sin6_scope_id == b6->sin6_scope_id);
+	}
+
+	return ret;
 }
 
-bool operator==(const ipv4_address& a, const ipv4_address& b) {
-	return (     a.addr.sin_family == b.addr.sin_family)
-	    && (       a.addr.sin_port == b.addr.sin_port)
-	    && (a.addr.sin_addr.s_addr == b.addr.sin_addr.s_addr);
-}
-
-bool operator==(const ipv6_address& a, const ipv6_address& b) {
-	return (     a.addr.sin6_family == b.addr.sin6_family)
-	    && (       a.addr.sin6_port == b.addr.sin6_port)
-	    && (   a.addr.sin6_flowinfo == b.addr.sin6_flowinfo)
-	    && !memcmp(&a.addr.sin6_addr.s6_addr, &b.addr.sin6_addr.s6_addr, sizeof(struct in6_addr))
-	    && (   a.addr.sin6_scope_id == b.addr.sin6_scope_id);
-}
+bool operator!=(const address& a, const address& b) {return !(a==b);}
 
 } // namespace network_socket
