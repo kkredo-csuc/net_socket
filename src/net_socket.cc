@@ -655,9 +655,9 @@ ssize_t net_socket::recv_all(std::string &data) {
 	auto itr = std::find(tmp, tmp+rs, '\0');
 	// NULL found
 	if( itr != (tmp + rs) ) {
-		ret = std::distance(tmp, itr) + 1;
+		ret = std::distance(tmp, itr) + 1; // Receive NULL
 		recv(tmp, ret);
-		data.assign(tmp, tmp + ret);
+		data.assign(tmp, tmp + ret - 1); // Don't put NULL in string
 	}
 	else {
 		ret = 0;
