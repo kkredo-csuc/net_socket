@@ -563,7 +563,7 @@ ssize_t net_socket::recv(void *data, size_t max_size, int flags) {
 		}
 	}
 
-	ssize_t ret = ::recv(_sock_desc, data, max_size, 0);
+	ssize_t ret = ::recv(_sock_desc, data, max_size, flags);
 	if( ret == -1 ) {
 		throw std::runtime_error(string("net_socket::recv(): ")+string(strerror(errno)));
 	}
