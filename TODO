@@ -10,3 +10,5 @@ Catching exception in recv_all(void*) causes problems. Can't return number of by
 
 * Test vector<> with other types beyond char.
 
+* Add UDP support.
+
