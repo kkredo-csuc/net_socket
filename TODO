@@ -1,0 +1,12 @@
+* Problem:
+recv_all(vector<char>, size) called on socket without size B causes problems when timeout enabled.
+Internal recv throws timeout exception, which bypasses resize operation in recv_all.
+This causes vector to have wrong size upon return.
+
+Not able to catch exception in recv_all(vector) because number of bytes actually received would be lost.
+Catching exception in recv_all(void*) causes problems. Can't return number of bytes AND throw exception.
+
+* Redesign and clean up string interface.
+
+* Test vector<> with other types beyond char.
+
