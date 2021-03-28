@@ -618,7 +618,10 @@ ssize_t net_socket::recv_all(void *data, size_t exact_size) {
 	ssize_t rs;
 	while( rcvd < exact_size ) {
 		rs = recv(d + rcvd, exact_size - rcvd);
-		if( rs == 0 ){
+		if( rs == -1 ) {
+			throw std::runtime_error("net_socket internal error: error in call to recv (" + string(strerror(errno)) + ")");
+		}
+		if( rs == 0 ) {
 			break;
 		}
 		rcvd += rs;
