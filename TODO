@@ -1,3 +1,5 @@
+* Actually make the documentation complete and readable.
+
 * Problem:
 recv_all(vector<char>, size) called on socket without size B causes problems when timeout enabled.
 Internal recv throws timeout exception, which bypasses resize operation in recv_all.
