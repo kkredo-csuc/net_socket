@@ -437,6 +437,30 @@ TEST(NetSocket, SendAllRecvAllTests ) {
 	st.join();
 }
 
+TEST(NetSocket, IntVectorTests ) {
+	unsigned short port = get_random_port();
+	std::thread st = spawn_and_check_server(check_and_echo_server, port);
+	unique_ptr<net_socket> c = create_connected_client(port);
+
+	auto seed = std::chrono::system_clock::now().time_since_epoch().count();
+	std::default_random_engine generator(seed);
+	std::uniform_int_distribution<int> dist(500,500000);
+	std::vector<int> tx_vec, rx_vec;
+	unsigned int count = 50;
+	unsigned int size = count * sizeof(int);
+	for( unsigned int i = 0; i < count; ++i ) {
+		tx_vec.push_back(dist(generator));
+	}
+
+	ASSERT_EQ(tx_vec.size(), count);
+	ASSERT_EQ(c->send_all(tx_vec), size);
+	ASSERT_EQ(c->recv_all(rx_vec), size);
+	EXPECT_EQ(tx_vec.size(), rx_vec.size());
+	EXPECT_EQ(tx_vec, rx_vec);
+
+	st.join();
+}
+
 TEST(NetSocket, PacketErrorSendTests ) {
 	unsigned short port = get_random_port();
 	std::thread st = spawn_and_check_server(check_and_echo_server, port);

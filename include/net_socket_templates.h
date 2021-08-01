@@ -67,7 +67,7 @@ ssize_t net_socket::recv_all(vector<T> &data, size_t exact_size) {
 
 	ssize_t ss = recv_all(data.data(), exact_size);
 	if( ss >= 0 ) {
-		data.resize(ss);
+		data.resize(ss/sizeof(T));
 	}
 
 	return ss;
