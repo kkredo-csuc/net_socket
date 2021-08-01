@@ -650,7 +650,7 @@ ssize_t net_socket::recv_all(std::string &data) {
 	char tmp[_recv_size];
 	ssize_t rs = recv(tmp, sizeof(tmp), MSG_PEEK);
 	// Try one more time after a timeout period if NULL isn't found and if timeout set
-	if( _do_timeout && (std::find(tmp, tmp+rs, '\0') == (tmp + _recv_size)) ) {
+	if( _do_timeout && (std::find(tmp, tmp+rs, '\0') == (tmp + rs)) ) {
 		struct timeval tmp_tv = _timeout;
 		select(0, nullptr, nullptr, nullptr, &tmp_tv);
 		rs = recv(tmp, sizeof(tmp), MSG_PEEK);
