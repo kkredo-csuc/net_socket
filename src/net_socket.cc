@@ -614,7 +614,8 @@ ssize_t net_socket::recv_all(void *data, size_t exact_size) {
 	}
 
 	auto d = static_cast<char*>(data);
-	size_t rcvd = 0, rs;
+	size_t rcvd = 0;
+	ssize_t rs;
 	while( rcvd < exact_size ) {
 		rs = recv(d + rcvd, exact_size - rcvd);
 		if( rs == 0 ){
@@ -644,7 +645,7 @@ ssize_t net_socket::recv_all(std::string &data, size_t exact_size) {
 ssize_t net_socket::recv_all(std::string &data) {
 	ssize_t ret;
 	char tmp[_recv_size];
-	size_t rs = recv(tmp, sizeof(tmp), MSG_PEEK);
+	ssize_t rs = recv(tmp, sizeof(tmp), MSG_PEEK);
 	// Try one more time after a timeout period if NULL isn't found and if timeout set
 	if( _do_timeout && (std::find(tmp, tmp+rs, '\0') == (tmp + _recv_size)) ) {
 		struct timeval tmp_tv = _timeout;
