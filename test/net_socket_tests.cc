@@ -423,13 +423,16 @@ TEST(NetSocket, SendAllRecvAllTests ) {
 	EXPECT_EQ(tx_str, rx_str);
 
 	// Send string and receive string with defined size
+	// Must increase default recv size
+	c->set_recv_size(tx_size+1);
 	rx_str.clear();
 	rx_str.resize(tx_size);
 	ASSERT_NE(tx_str, rx_str);
 	ASSERT_EQ(c->send_all(tx_str), tx_size+1);
+	sleep(1); // Wait for all bytes to return to client
 	EXPECT_EQ(c->recv_all(rx_str), tx_size+1);
-//	EXPECT_EQ(tx_str.size(), rx_str.size());
-//	EXPECT_EQ(tx_str, rx_str);
+	EXPECT_EQ(tx_str.size(), rx_str.size());
+	EXPECT_EQ(tx_str, rx_str);
 
 	st.join();
 }
@@ -450,6 +453,7 @@ TEST(NetSocket, PacketErrorSendTests ) {
 
 	// Receive as much data as possible
 	vector<char> rx;
+	sleep(1); // Allow all data to be sent and arrive
 	c->set_timeout(0.1);
 	try{
 		c->recv_all(rx, pkt_count);
