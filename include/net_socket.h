@@ -216,7 +216,7 @@ ssize_t net_socket::recv(std::vector<T> &data, size_t max_size) {
 
 	ssize_t ss = recv(data.data(), max_size);
 	if( ss >= 0 ) {
-		data.resize(ss);
+		data.resize(ss/sizeof(T));
 	}
 
 	return ss;
