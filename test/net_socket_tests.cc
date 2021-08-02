@@ -264,7 +264,6 @@ TEST( NetSocket, InvalidOperationTests ) {
 	EXPECT_THROW(s0.recv_all(vec, 1), runtime_error);
 	EXPECT_THROW(s0.recv_all(vec), runtime_error);
 	EXPECT_THROW(s0.recv_all(str, 1), runtime_error);
-	EXPECT_THROW(s0.recv_all(str), runtime_error);
 }
 
 TEST( NetSocket, DestructorTests ){
@@ -417,8 +416,7 @@ TEST(NetSocket, SendAllRecvAllTests ) {
 	// Send string and receive string
 	ASSERT_NE(tx_str, rx_str);
 	ASSERT_EQ(c->send_all(tx_str), tx_size+1);
-	EXPECT_EQ(c->recv_all(rx_str, tx_size), tx_size);
-	ASSERT_EQ(c->recv_all(rx_arr, 1), 1); // Eat the extra NULL
+	EXPECT_EQ(c->recv_all(rx_str, tx_size+1), tx_size+1);
 	EXPECT_EQ(tx_str.size(), rx_str.size());
 	EXPECT_EQ(tx_str, rx_str);
 
@@ -430,7 +428,7 @@ TEST(NetSocket, SendAllRecvAllTests ) {
 	ASSERT_NE(tx_str, rx_str);
 	ASSERT_EQ(c->send_all(tx_str), tx_size+1);
 	sleep(1); // Wait for all bytes to return to client
-	EXPECT_EQ(c->recv_all(rx_str), tx_size+1);
+	EXPECT_EQ(c->recv_all(rx_str, tx_size+1), tx_size+1);
 	EXPECT_EQ(tx_str.size(), rx_str.size());
 	EXPECT_EQ(tx_str, rx_str);
 

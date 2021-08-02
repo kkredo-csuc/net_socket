@@ -469,15 +469,11 @@ ssize_t net_socket::send(const void *data, size_t max_size) const {
 }
 
 ssize_t net_socket::send(const std::string &data, size_t max_size) const {
-	if( max_size > data.length() ) {
-		max_size = data.length();
+	if( (max_size == 0) || (max_size > data.length()+1) ) {
+		max_size = data.length()+1;
 	}
 
 	return send(data.data(), max_size);
-}
-
-ssize_t net_socket::send(const std::string &data) const {
-	return send(data.data(), data.length()+1);
 }
 
 ssize_t net_socket::packet_error_send(const void *data, size_t max_size) const {
@@ -502,15 +498,11 @@ ssize_t net_socket::packet_error_send(const void *data, size_t max_size) const {
 }
 
 ssize_t net_socket::packet_error_send(const std::string &data, size_t max_size) const {
-	if( max_size > data.length() ) {
-		max_size = data.length();
+	if( (max_size == 0) || (max_size > data.length()+1) ) {
+		max_size = data.length()+1;
 	}
 
 	return packet_error_send(data.data(), max_size);
-}
-
-ssize_t net_socket::packet_error_send(const std::string &data) const {
-	return packet_error_send(data.data(), data.length()+1);
 }
 
 ssize_t net_socket::send_all(const void *data, size_t exact_size) const {
@@ -524,15 +516,11 @@ ssize_t net_socket::send_all(const void *data, size_t exact_size) const {
 }
 
 ssize_t net_socket::send_all(const std::string &data, size_t max_size) const {
-	if( max_size > data.length() ) {
-		max_size = data.length();
+	if( (max_size == 0) || (max_size > data.length()+1) ) {
+		max_size = data.length()+1;
 	}
 
 	return send_all(data.data(), max_size);
-}
-
-ssize_t net_socket::send_all(const std::string &data) const {
-	return send_all(data.data(), data.length()+1);
 }
 
 ssize_t net_socket::recv(void *data, size_t max_size, int flags) {
@@ -572,34 +560,19 @@ ssize_t net_socket::recv(void *data, size_t max_size, int flags) {
 }
 
 ssize_t net_socket::recv(std::string &data, size_t max_size) {
-	ssize_t ss;
 	if( max_size == 0 ) {
-		data.clear();
-		ss = 0;
+		max_size = _recv_size;
 	}
-	else{
-		char tmp[max_size];
-		ss = recv(tmp, max_size);
-		data.assign(tmp, tmp + ss);
-	}
-	return ss;
-}
 
-ssize_t net_socket::recv(std::string &data) {
-	ssize_t ret;
-	char tmp[_recv_size];
-	ssize_t ss = recv(tmp, _recv_size, MSG_PEEK);
-	data.assign(tmp, tmp + ss);
-	size_t pos = data.find('\0');
+	char tmp[max_size];
+	ssize_t ret = recv(tmp, max_size, MSG_PEEK);
+	data.assign(tmp, tmp + ret);
+	string::size_type pos = data.find('\0');
 	if( pos != string::npos ) {
-		recv(tmp, pos+1, 0);
 		data.resize(pos);
-		ret = pos+1;
+		ret = pos + 1;
 	}
-	else {
-		data.clear();
-		ret = 0;
-	}
+	recv(tmp, ret);
 
 	return ret;
 }
@@ -623,44 +596,37 @@ ssize_t net_socket::recv_all(void *data, size_t exact_size) {
 }
 
 ssize_t net_socket::recv_all(std::string &data, size_t exact_size) {
-	ssize_t ret;
 	if( exact_size == 0 ) {
-		ret = 0;
-		data.clear();
-	}
-	else {
-		char tmp[exact_size];
-		ret = recv_all(tmp, exact_size);
-		data.assign(tmp, tmp + ret);
+		exact_size = _recv_size;
 	}
 
-	return ret;
-}
-
-ssize_t net_socket::recv_all(std::string &data) {
-	ssize_t ret;
-	char tmp[_recv_size];
-	ssize_t rs = recv(tmp, sizeof(tmp), MSG_PEEK);
-	// Try one more time after a timeout period if NULL isn't found and if timeout set
-	if( _do_timeout && (std::find(tmp, tmp+rs, '\0') == (tmp + rs)) ) {
-		struct timeval tmp_tv = _timeout;
-		select(0, nullptr, nullptr, nullptr, &tmp_tv);
-		rs = recv(tmp, sizeof(tmp), MSG_PEEK);
+	char tmp[exact_size];
+	ssize_t rcvd = 0;
+	while( (rcvd < static_cast<ssize_t>(exact_size)) && (std::find(tmp, tmp+rcvd, '\0') == (tmp+rcvd)) ) {
+		try {
+			rcvd = recv(tmp, exact_size, MSG_PEEK);
+		}
+		catch( timeout_exception &to ) {
+			to.set_partial_data_size(rcvd);
+			data.assign(tmp, tmp+rcvd);
+			throw;
+		}
+		if( rcvd == -1 ) {
+			throw std::runtime_error("net_socket internal error: error in call to recv (" + string(strerror(errno)) + ")");
+		}
+		if( rcvd == 0 ) {
+			break;
+		}
 	}
-
-	auto itr = std::find(tmp, tmp+rs, '\0');
-	// NULL found
-	if( itr != (tmp + rs) ) {
-		ret = std::distance(tmp, itr) + 1; // Receive NULL
-		recv(tmp, ret);
-		data.assign(tmp, tmp + ret - 1); // Don't put NULL in string
+	data.assign(tmp, tmp+rcvd);
+	string::size_type pos = data.find('\0');
+	if( pos != string::npos ) {
+		data.resize(pos);
+		rcvd = pos + 1;
 	}
-	else {
-		ret = 0;
-		data.clear();
-	}
+	recv(tmp, rcvd);
 
-	return ret;
+	return rcvd;
 }
 
 // Private members
