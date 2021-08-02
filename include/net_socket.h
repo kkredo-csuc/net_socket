@@ -229,9 +229,78 @@ private:
 // Helper output operators
 std::ostream& operator<<(std::ostream&, const address&);
 
-} // namespace network_socket
-
+//
 // send/recv template definitions
-#include "net_socket_templates.h"
+//
+template<typename T>
+ssize_t net_socket::send(const std::vector<T> &data, size_t max_size) const {
+	if( (max_size == 0) || (max_size > data.size()*sizeof(T)) ) {
+		max_size = data.size()*sizeof(T);
+	}
+
+	return send(data.data(), max_size);
+}
+
+template<typename T>
+ssize_t net_socket::packet_error_send(const std::vector<T> &data, size_t max_size) const {
+	if( (max_size == 0) || (max_size > data.size()*sizeof(T)) ) {
+		max_size = data.size()*sizeof(T);
+	}
+
+	return packet_error_send(data.data(), max_size);
+}
+
+template<typename T>
+ssize_t net_socket::send_all(const std::vector<T> &data) const {
+	return send_all(data.data(), data.size()*sizeof(T));
+}
+
+template<typename T>
+ssize_t net_socket::recv(std::vector<T> &data, size_t max_size) {
+	if( max_size == 0 ) {
+		if( data.empty() ) {
+			data.resize(_recv_size);
+			max_size = _recv_size;
+		}
+		else {
+			max_size = data.size()*sizeof(T);
+		}
+	}
+	else {
+		data.resize(max_size);
+	}
+
+	ssize_t ss = recv(data.data(), max_size);
+	if( ss >= 0 ) {
+		data.resize(ss);
+	}
+
+	return ss;
+}
+
+template<typename T>
+ssize_t net_socket::recv_all(std::vector<T> &data, size_t exact_size) {
+	if( exact_size == 0 ) {
+		if( data.empty() ) {
+			data.resize(_recv_size);
+			exact_size = _recv_size;
+		}
+		else {
+			exact_size = data.size()*sizeof(T);
+		}
+	}
+	else {
+		data.resize(exact_size);
+	}
+
+	ssize_t ss = recv_all(data.data(), exact_size);
+	if( ss >= 0 ) {
+		data.resize(ss/sizeof(T));
+	}
+
+	return ss;
+}
+
+} // namespace network_socket
 
 #endif

@@ -6,6 +6,7 @@
 #include <chrono>
 #include <algorithm>
 #include <arpa/inet.h>
+#include <cstring>
 
 using std::string;
 using std::unique_ptr;
