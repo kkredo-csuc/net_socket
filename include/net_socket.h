@@ -10,7 +10,14 @@
 
 namespace network_socket {
 
-/// An exception thrown when data does not arrive before a timeout value, if one is set.
+/// \brief An exception thrown when data does not arrive before a timeout
+/// value.
+///
+/// The exception is thrown when attempting to recv data and does not arrive
+/// before the timeout expires and if the timeout is set. If some data is
+/// received before the timeout, the number of bytes is stored; this is used by
+/// the recv_all functions.
+
 class timeout_exception : public std::runtime_error {
 public:
 	timeout_exception() : runtime_error("TIMEOUT!") {};
@@ -21,6 +28,12 @@ public:
 private:
 	ssize_t _partial_data_size {0};
 };
+
+/// \brief A class that abstracts various sockaddr structures.
+///
+/// It provides easy conversion from sockaddr structures for both IPv4 and IPv6
+/// families. The class also stores the port number and provides an output
+/// operator for use with std::ostreams.
 
 class address {
 public:
@@ -36,14 +49,45 @@ public:
 	address& operator=(const struct sockaddr_in&);
 	address& operator=(const struct sockaddr_in6&);
 
+	/// \brief Test if the address is an IPv4 address.
+	/// \retval True: the address is a valid IPv4 address.
+	/// \retval False: the address is not a valid IPv4 address.
 	bool is_ipv4() const;
+
+	/// \brief Test if the address is an IPv6 address.
+	/// \retval True: the address is a valid IPv6 address.
+	/// \retval False: the address is not a valid IPv6 address.
 	bool is_ipv6() const;
-	// Returns in host byte order
+
+	/// \brief Retrieve the port number in *host* byte order.
+	/// \return The port number in *host* byte order.
 	in_port_t get_port() const;
-	// Argument in host byte order
-	void set_port(in_port_t);
+
+	/// \brief Assign the port number.
+	/// \param p Port number in *host* byte order.
+	void set_port(in_port_t p);
+
+	/// \brief Retrieve a string representation of the address.
+	///
+	/// The string has the following format for each family.
+	///
+	/// Family|Format|Example
+	///  ---|---|---
+	/// IPv4|address:port|192.168.1.25:22
+	/// IPv6|[address]:port|[ffe0::1]:22
+	///
 	std::string get_address() const;
+
+	/// \brief Assign the address from a string.
+	///
+	/// Convert from a string representation instead of a sockaddr. The string
+	/// must have a format accepted by inet_pton (e.g., the same format as
+	/// provided by get_address).
 	void set_address(const std::string&);
+
+	/// \brief Retrieve the sockadder structure for the address.
+	/// \return A sockaddr_storage structure to ensure it can contain an IPv6
+	/// address.
 	struct sockaddr_storage get_sockaddr() const {return addr;}
 
 	friend bool operator==(const address&, const address&);
@@ -52,6 +96,8 @@ private:
 };
 bool operator!=(const address&, const address&);
 
+/// \brief C++ network socket class that mimics the socket API with support for
+/// some STL classes.
 class net_socket{
 public:
 
@@ -64,18 +110,21 @@ public:
 		network_protocol net = network_protocol::ANY,
 		transport_protocol tran = transport_protocol::TCP
 		);
+
 	/// Copy constructor
 	///
-	/// Assigning from or to a net_socket that is open (is_connected() or is_passively_opened() are
-	/// true) causes an exception.
+	/// Assigning from or to a net_socket that is open (is_connected() or
+	/// is_passively_opened() are true) causes an exception.
 	net_socket(const net_socket &other);
+
 	net_socket(net_socket&& other) noexcept;
 
 	/// Assignment operator
 	///
-	/// Assigning from or to a net_socket that is open (is_connected() or is_passively_opened() are
-	/// true) causes an exception.
+	/// Assigning from or to a net_socket that is open (is_connected() or
+	/// is_passively_opened() are true) causes an exception.
 	net_socket& operator=(const net_socket& rhs);
+
 	net_socket& operator=(net_socket&& rhs) noexcept;
 
 	/// Destructor
@@ -84,6 +133,8 @@ public:
 	~net_socket() noexcept;
 
 	// Getter and setter members
+	/// \brief Get the socket descriptor (file descriptor).
+	/// \return -1 if the socket is closed.
 	int get_socket_descriptor() const {return _sock_desc;}
 	network_protocol get_network_protocol() const {return _net_proto;}
 	void set_network_protocol(network_protocol np);
@@ -91,70 +142,144 @@ public:
 	void set_transport_protocol(transport_protocol tp);
 	bool is_passively_opened() const {return _passive;}
 	int get_backlog() const {return _backlog;}
-	/// Set the pending connection backlog.
+	/// \brief Set the pending connection backlog.
 	///
-	/// Argument must be non-negative.
+	/// \param backlog Must be non-negative.
 	void set_backlog(int backlog);
 	bool is_connected() const {return _connected;}
 	bool timeout_is_set() const {return _do_timeout;}
-	/// Get the current timeout interval.
-	///
-	/// Returns 0 if timeouts are disabled.
+	/// \brief Get the current timeout interval.
+	/// \return 0 if timeouts are disabled.
 	double get_timeout() const;
-	/// Set the timeout interval.
+	/// \brief Set the timeout interval.
 	///
-	/// Setting the timeout to 0 disables timeout operation similar to clear_timeout() .
+	/// Setting the timeout to 0 disables timeout operation similar to
+	/// clear_timeout().
 	void set_timeout(double s);
 	/// Disable timeout operation.
 	void clear_timeout() {_do_timeout = false;}
 	size_t get_default_recv_size() const {return _recv_size;}
+	/// \brief Set the number of bytes to receive when not otherwise specified.
+	///
+	/// Receive functions that specify a size of zero (the default) will use
+	/// this size to determine how many bytes to receive.
 	void set_default_recv_size(size_t s) {_recv_size = s;}
 
-	// Connection management functions.
+	/// \brief Listen for connections on the specified interface and port or service
+	/// name.
 	void listen(const std::string &host, const std::string &service);
+	/// Listen for connections on the specified interface and port.
 	void listen(const std::string &host, unsigned short port);
+	/// \brief Listen for connections on any interface on specified port or service
+	/// name.
 	void listen(const std::string &service);
+	/// Listen for connections on any interface on specified port.
 	void listen(unsigned short port);
+	/// Connect to the specified host and port or service name.
 	void connect(const std::string &host, const std::string &service);
+	/// Connect to the specified host and port.
 	void connect(const std::string &host, unsigned short port);
+	/// Close any active connections.
 	void close();
 
-	/// Accept a new connection.
+	/// \brief Accept a new connection.
 	///
-	/// A new, connected socket is returned. The original socket remains passively opened for
-	/// subsequent calls to accept. The returned socket is connected and ready to use.
+	/// A new, connected socket is returned. The original socket remains
+	/// passively opened for subsequent calls to accept. The returned socket is
+	/// connected and ready to use.
 	std::unique_ptr<net_socket> accept();
 
-	// Socket address (name) information.
-	// Exception thrown for local if socket is not connected and not passively opened.
+	/// \brief Get the local socket address (name) information.
+	///
+	/// An exception is thrown if the socket is not connected and not passively
+	/// opened.
 	address get_local_address() const;
-	// Exception thrown for remote if socket is not connected.
+	/// \brief Get the remote socket address (name) information.
+	///
+	/// An exception is thrown if the socket is not connected.
 	address get_remote_address() const;
 
+	/// \brief Send `max_size` bytes of data starting at memory location `data`.
+	///
+	/// A wrapper around the socket API `send` function. Throws an exception if
+	/// the net_socket is not connected or upon error.
 	ssize_t send(const void *data, size_t max_size) const;
+	/// \brief Sends data from the vector.
+	///
+	/// Sends data in *network* byte order after conversion. Original object
+	/// remains unchanged.
 	template<typename T>
 		ssize_t send(const std::vector<T> data, size_t max_size = 0) const;
+	/// \brief Send the string data *and* a NULL.
+	///
+	/// The function always sends a NULL character, even if the string is
+	/// empty (i.e., you can send the empty string). If `max_size` is zero
+	/// (the default) then data.length()+1 bytes are sent. If `max_size` is
+	/// larger than data.length(), then data.length()+1 bytes are sent.
+	/// \return The actual number of bytes sent, including the NULL.
 	ssize_t send(const std::string &data, size_t max_size = 0) const;
 
+	/// \brief Sends the requested data, but sometimes doesn't.
+	///
+	/// `packet_error_send` randomly returns a non-zero value (indicating
+	/// success, but doesn't actually send anything. The "drop" probability is
+	/// determined by the _drop_rate parameter at compile time.
 	ssize_t packet_error_send(const void *data, size_t max_size) const;
+	/// \details See `send(std::vector)` and `packet_error_send(void*)`.
 	template<typename T>
 		ssize_t packet_error_send(const std::vector<T> data,
 			size_t max_size = 0) const;
-	ssize_t packet_error_send(const std::string &data, size_t max_size = 0) const;
+	/// \details See `send(std::string)` and `packet_error_send(void*)`.
+	ssize_t packet_error_send(const std::string &data, size_t max_size = 0)
+		const;
 
+	/// \brief Attempt to send all the requested data.
+	///
+	/// Multiple calls to `send` may take place, if required.
+	/// \return The actual number of bytes sent.
 	ssize_t send_all(const void *data, size_t exact_size) const;
+	/// \details See `send_all(void*)` and `send(std::vector)`.
 	template<typename T>
 		ssize_t send_all(const std::vector<T> data) const;
+	/// \details See `send_all(void*)` and `send(std::string)`.
 	ssize_t send_all(const std::string &data, size_t max_size = 0) const;
 
+	/// \brief Attempt to receive `max_size` bytes of data.
+	///
+	/// `recv` only makes one attempt to retrieve the data. By default, `recv`
+	/// waits indefinitely for data. Use a timeout value (`set_timeout`) if the
+	/// net_socket should only wait for a definite time interval. If a timeout
+	/// occurs, a `timeout_exception` is thrown. Exceptions also thrown if the
+	/// net_socket is not connected or upon error.
 	ssize_t recv(void *data, size_t max_size, int flags = 0);
+	/// \brief Receive data into a vector.
+	///
+	/// Receives data in *network* byte order and converts elements to *host*
+	/// byte order before returning.
 	template<typename T>
 		ssize_t recv(std::vector<T> &data, size_t max_size = 0);
+	/// \brief Receive a string.
+	///
+	/// If `max_size` equals zero (the default), then `recv(std::string)`
+	/// expects a NULL in the network byte stream. It will continue to receive
+	/// bytes until it finds a NULL or until the default receive size is
+	/// reached. If `max_size` is non-zero, the function will receive bytes
+	/// until it finds a NULL or until it receives the first `max_size` bytes
+	/// into the string. Any remaining characters after `max_size`, including
+	/// NULL, will remain in the OS buffer.
 	ssize_t recv(std::string &data, size_t max_size = 0);
 
+	/// \brief Attempt to receive all the requested data.
+	///
+	/// Similar to `recv(void*)` except multiple attempts are made to receive
+	/// `exact_size` bytes of data.
+	/// \return The actual number of bytes received, which may be less than
+	/// `exact_size`.
 	ssize_t recv_all(void *data, size_t exact_size);
+	/// \details See `recv_all(void*)` and `recv(std::vector)`.
 	template<typename T>
 		ssize_t recv_all(std::vector<T> &data, size_t exact_size = 0);
+	/// \details See `recv_all(void*)` and `recv(std::string)`.
 	ssize_t recv_all(std::string &data, size_t exact_size);
 
 private:
@@ -167,7 +292,8 @@ private:
 	bool _do_timeout{false};
 	struct timeval _timeout{};
 	size_t _recv_size{1400};
-	const unsigned short _drop_rate{15}; // % chance to drop a packet for packet_error_send
+	// % chance to drop a packet for packet_error_send
+	const unsigned short _drop_rate{15};
 	std::unique_ptr<std::default_random_engine> _rng;
 
 	void copy(const net_socket *other = nullptr);
