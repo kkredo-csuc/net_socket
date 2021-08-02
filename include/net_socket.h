@@ -132,23 +132,29 @@ public:
 	address get_remote_address() const;
 
 	ssize_t send(const void *data, size_t max_size) const;
-	template<typename T> ssize_t send(const std::vector<T> &data, size_t max_size = 0) const;
+	template<typename T>
+		ssize_t send(const std::vector<T> data, size_t max_size = 0) const;
 	ssize_t send(const std::string &data, size_t max_size = 0) const;
 
 	ssize_t packet_error_send(const void *data, size_t max_size) const;
-	template<typename T> ssize_t packet_error_send(const std::vector<T> &data, size_t max_size = 0) const;
+	template<typename T>
+		ssize_t packet_error_send(const std::vector<T> data,
+			size_t max_size = 0) const;
 	ssize_t packet_error_send(const std::string &data, size_t max_size = 0) const;
 
 	ssize_t send_all(const void *data, size_t exact_size) const;
-	template<typename T> ssize_t send_all(const std::vector<T> &data) const;
+	template<typename T>
+		ssize_t send_all(const std::vector<T> data) const;
 	ssize_t send_all(const std::string &data, size_t max_size = 0) const;
 
 	ssize_t recv(void *data, size_t max_size, int flags = 0);
-	template<typename T> ssize_t recv(std::vector<T> &data, size_t max_size = 0);
+	template<typename T>
+		ssize_t recv(std::vector<T> &data, size_t max_size = 0);
 	ssize_t recv(std::string &data, size_t max_size = 0);
 
 	ssize_t recv_all(void *data, size_t exact_size);
-	template<typename T> ssize_t recv_all(std::vector<T> &data, size_t exact_size = 0);
+	template<typename T>
+		ssize_t recv_all(std::vector<T> &data, size_t exact_size = 0);
 	ssize_t recv_all(std::string &data, size_t exact_size);
 
 private:
@@ -168,6 +174,8 @@ private:
 	void move(net_socket *other);
 	int get_af() const;
 	int get_socktype() const;
+	template<typename T> void ntoh_swap(std::vector<T> &data) const;
+	template<typename T> void hton_swap(std::vector<T> &data) const;
 };
 
 // Helper output operators
@@ -177,25 +185,31 @@ std::ostream& operator<<(std::ostream&, const address&);
 // send/recv template definitions
 //
 template<typename T>
-ssize_t net_socket::send(const std::vector<T> &data, size_t max_size) const {
+ssize_t net_socket::send(std::vector<T> data, size_t max_size) const {
 	if( (max_size == 0) || (max_size > data.size()*sizeof(T)) ) {
 		max_size = data.size()*sizeof(T);
 	}
+
+	hton_swap(data);
 
 	return send(data.data(), max_size);
 }
 
 template<typename T>
-ssize_t net_socket::packet_error_send(const std::vector<T> &data, size_t max_size) const {
+ssize_t net_socket::packet_error_send(std::vector<T> data,
+	size_t max_size) const {
+
 	if( (max_size == 0) || (max_size > data.size()*sizeof(T)) ) {
 		max_size = data.size()*sizeof(T);
 	}
+	hton_swap(data);
 
 	return packet_error_send(data.data(), max_size);
 }
 
 template<typename T>
-ssize_t net_socket::send_all(const std::vector<T> &data) const {
+ssize_t net_socket::send_all(std::vector<T> data) const {
+	hton_swap(data);
 	return send_all(data.data(), data.size()*sizeof(T));
 }
 
@@ -218,6 +232,8 @@ ssize_t net_socket::recv(std::vector<T> &data, size_t max_size) {
 	if( ss >= 0 ) {
 		data.resize(ss/sizeof(T));
 	}
+
+	ntoh_swap(data);
 
 	return ss;
 }
@@ -242,7 +258,45 @@ ssize_t net_socket::recv_all(std::vector<T> &data, size_t exact_size) {
 		data.resize(ss/sizeof(T));
 	}
 
+	ntoh_swap(data);
+
 	return ss;
+}
+
+template<typename T>
+void net_socket::hton_swap(std::vector<T> &data) const {
+	if( sizeof(T) > 1 ) {
+		for( auto itr : data ) {
+			if( sizeof(T) == 2 ) {
+				itr = htons(itr);
+			}
+			else if( sizeof(T) == 4 ) {
+				itr = htonl(itr);
+			}
+			else {
+				throw std::runtime_error("Unable to handle arrays with elements \
+					larger than 4 bytes.");
+			}
+		}
+	}
+}
+
+template<typename T>
+void net_socket::ntoh_swap(std::vector<T> &data) const {
+	if( sizeof(T) > 1 ) {
+		for( auto itr : data ) {
+			if( sizeof(T) == 2 ) {
+				itr = ntohs(itr);
+			}
+			else if( sizeof(T) == 4 ) {
+				itr = ntohl(itr);
+			}
+			else {
+				throw std::runtime_error("Unable to handle arrays with elements \
+					larger than 4 bytes.");
+			}
+		}
+	}
 }
 
 } // namespace network_socket
