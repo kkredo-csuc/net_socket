@@ -514,11 +514,6 @@ ssize_t net_socket::packet_error_send(const std::string &data) const {
 }
 
 ssize_t net_socket::send_all(const void *data, size_t exact_size) const {
-	if( !_connected ) {
-		throw std::runtime_error(
-			"net_socket::send_all(): Unable to send_all on unconnected socket");
-	}
-
 	auto d = static_cast<const char*>(data);
 	size_t sent = 0;
 	while( sent < exact_size ) {
@@ -610,10 +605,6 @@ ssize_t net_socket::recv(std::string &data) {
 }
 
 ssize_t net_socket::recv_all(void *data, size_t exact_size) {
-	if( !_connected ) {
-		throw std::runtime_error("net_socket::recv_all(): Unable to recv on unconnected socket");
-	}
-
 	auto d = static_cast<char*>(data);
 	size_t rcvd = 0;
 	ssize_t rs;
