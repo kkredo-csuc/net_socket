@@ -101,8 +101,8 @@ public:
 	void set_timeout(double s);
 	/// Disable timeout operation.
 	void clear_timeout() {_do_timeout = false;}
-	size_t get_recv_size() const {return _recv_size;}
-	void set_recv_size(size_t s) {_recv_size = s;}
+	size_t get_default_recv_size() const {return _recv_size;}
+	void set_default_recv_size(size_t s) {_recv_size = s;}
 
 	// Connection management functions.
 	void listen(const std::string &host, const std::string &service);

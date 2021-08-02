@@ -44,7 +44,7 @@ TEST( NetSocket, ConstructorTests ) {
 	EXPECT_FALSE(s.is_connected());
 	EXPECT_FALSE(s.timeout_is_set());
 	EXPECT_EQ(s.get_timeout(), 0.0);
-	EXPECT_EQ(s.get_recv_size(), 1400);
+	EXPECT_EQ(s.get_default_recv_size(), 1400);
 
 	// IPv4, TCP
 	net_socket s0(net_socket::network_protocol::IPv4, net_socket::transport_protocol::TCP);
@@ -130,9 +130,9 @@ TEST( NetSocket, GetterAndSetterTests ) {
 	EXPECT_FALSE(s.timeout_is_set());
 
 	// Receive size
-	size_t rs = s.get_recv_size();
-	s.set_recv_size(rs+100);
-	EXPECT_EQ(s.get_recv_size(), rs+100);
+	size_t rs = s.get_default_recv_size();
+	s.set_default_recv_size(rs+100);
+	EXPECT_EQ(s.get_default_recv_size(), rs+100);
 }
 
 TEST( NetSocket, ListenTests ) {
@@ -176,7 +176,7 @@ TEST( NetSocket, AssignmentOperatorTests ) {
 	EXPECT_THROW(s1.set_transport_protocol(net_socket::transport_protocol::UDP), invalid_argument);
 	s1.set_backlog(s1.get_backlog()+10);
 	s1.set_timeout(s1.get_timeout()+2.3);
-	s1.set_recv_size(s1.get_recv_size()+100);
+	s1.set_default_recv_size(s1.get_default_recv_size()+100);
 	// No way to change these items for an unopened socket
 	//  - socket descriptor
 	//  - passively opened flag
@@ -187,7 +187,7 @@ TEST( NetSocket, AssignmentOperatorTests ) {
 	EXPECT_NE(s0.get_backlog(), s1.get_backlog());
 	EXPECT_NE(s0.timeout_is_set(), s1.timeout_is_set());
 	EXPECT_NE(s0.get_timeout(), s1.get_timeout());
-	EXPECT_NE(s0.get_recv_size(), s1.get_recv_size());
+	EXPECT_NE(s0.get_default_recv_size(), s1.get_default_recv_size());
 
 	s0 = s1;
 	EXPECT_EQ(s0.get_socket_descriptor(), s1.get_socket_descriptor());
@@ -198,7 +198,7 @@ TEST( NetSocket, AssignmentOperatorTests ) {
 	EXPECT_EQ(s0.is_connected(), s1.is_connected());
 	EXPECT_EQ(s0.get_timeout(), s1.get_timeout());
 	EXPECT_EQ(s0.timeout_is_set(), s1.timeout_is_set());
-	EXPECT_EQ(s0.get_recv_size(), s1.get_recv_size());
+	EXPECT_EQ(s0.get_default_recv_size(), s1.get_default_recv_size());
 }
 
 TEST( NetSocket, ConnectTests ) {
@@ -322,14 +322,14 @@ TEST( NetSocket, SendRecvTests ) {
 	unique_ptr<net_socket> c = create_connected_client(port);
 
 	vector<char> tx_data;
-	for( unsigned int i = 0; i < c->get_recv_size(); ++i ){
+	for( unsigned int i = 0; i < c->get_default_recv_size(); ++i ){
 		tx_data.push_back(rand()%256);
 	}
 	vector<char> rx_data;
 
 	// Send and recv the same data
-	ASSERT_EQ(c->send(tx_data), c->get_recv_size());
-	ASSERT_EQ(c->recv(rx_data), c->get_recv_size());
+	ASSERT_EQ(c->send(tx_data), c->get_default_recv_size());
+	ASSERT_EQ(c->recv(rx_data), c->get_default_recv_size());
 	EXPECT_EQ(rx_data, tx_data);
 
 	st.join();
@@ -361,9 +361,9 @@ TEST(NetSocket, UnequalSendRecvTests ) {
 
 	// Send and receive vector
 	ssize_t ss = c->send(tx_data);
-	ASSERT_NE(ss, c->get_recv_size());
+	ASSERT_NE(ss, c->get_default_recv_size());
 	ssize_t rs = c->recv(rx_data);
-	EXPECT_EQ(rs, c->get_recv_size());
+	EXPECT_EQ(rs, c->get_default_recv_size());
 	EXPECT_EQ(rs, rx_data.size());
 	EXPECT_NE(rx_data.size(), tx_data.size());
 	EXPECT_NE(rx_data, tx_data);
@@ -424,7 +424,7 @@ TEST(NetSocket, SendAllRecvAllTests ) {
 
 	// Send string and receive string with defined size
 	// Must increase default recv size
-	c->set_recv_size(tx_size+1);
+	c->set_default_recv_size(tx_size+1);
 	rx_str.clear();
 	rx_str.resize(tx_size);
 	ASSERT_NE(tx_str, rx_str);
