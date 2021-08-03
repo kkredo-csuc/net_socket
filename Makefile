@@ -21,10 +21,6 @@ lib: $(LIB)
 $(LIB): $(TEST_OBJ)
 	ar -cvq $(LIB) $(TEST_OBJ)
 
-.PHONY: tidy
-tidy:
-	$(CLANG_TIDY) src/net_socket.cc --
-
 .PHONY: doc
 doc:
 	doxygen Doxyfile
