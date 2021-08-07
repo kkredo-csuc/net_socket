@@ -266,7 +266,8 @@ public:
 	/// reached. If `max_size` is non-zero, the function will receive bytes
 	/// until it finds a NULL or until it receives the first `max_size` bytes
 	/// into the string. Any remaining characters after `max_size`, including
-	/// NULL, will remain in the OS buffer.
+	/// NULL, will remain in the OS buffer. WARNING: If recv finds neither a
+	/// NULL nor `max_size` bytes, then it will loop indefinitely.
 	ssize_t recv(std::string &data, size_t max_size = 0);
 
 	/// \brief Attempt to receive all the requested data.

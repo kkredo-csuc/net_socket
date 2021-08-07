@@ -372,6 +372,32 @@ TEST(NetSocket, UnequalSendRecvTests ) {
 	st.join();
 }
 
+TEST(NetSocket, UnequalSendallRecvallDiffTypesTests ) {
+	unsigned short port = get_random_port();
+	thread st = spawn_and_check_server(check_and_echo_server, port);
+	unique_ptr<net_socket> c = create_connected_client(port);
+
+	vector<char> tx_data;
+	for( int i = 0; i < 10000; ++i ){
+		tx_data.push_back(rand()%255+1); // Don't include NULL
+	}
+	string rx_str;
+	int rx_len = 350; // Not a multiple of TX bytes
+
+	ssize_t ss = c->send_all(tx_data);
+	ASSERT_EQ(ss, tx_data.size());
+	ASSERT_EQ(1, c->send_all("\0")); // Must send NULL to RX string
+	ssize_t rs;
+	for( unsigned int i = 0; i < tx_data.size()/rx_len; ++i ) {
+		rs = c->recv_all(rx_str, rx_len);
+		ASSERT_EQ(rs, rx_len);
+	}
+	rs = c->recv_all(rx_str, rx_len);
+	ASSERT_EQ(rs, tx_data.size()%rx_len+1); // +1 for NULL
+
+	st.join();
+}
+
 TEST(NetSocket, SendAllRecvAllTests ) {
 	unsigned short port = get_random_port();
 	std::thread st = spawn_and_check_server(check_and_echo_server, port);
