@@ -282,7 +282,9 @@ public:
 	/// \return The actual number of bytes received, which may be less than
 	/// `exact_size`.
 	ssize_t recv_all(void *data, size_t exact_size);
-	/// \details See `recv_all(void*)` and `recv(std::vector)`.
+	/// \details See `recv_all(void*)` and `recv(std::vector)`. If `exact_size`
+	/// equals zero (the default), then attempt to recive data.size() bytes. If
+	/// both are zero, then attempt to receive the default receive size.
 	template<typename T>
 		ssize_t recv_all(std::vector<T> &data, size_t exact_size = 0);
 	/// \details See `recv_all(void*)` and `recv(std::string)`.
