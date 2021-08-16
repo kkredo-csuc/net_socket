@@ -76,13 +76,16 @@ public:
 	/// IPv4|address:port|192.168.1.25:22
 	/// IPv6|[address]:port|[ffe0::1]:22
 	///
+	std::string str() const;
+
+	/// Get the address represented as string.
 	std::string get_address() const;
 
 	/// \brief Assign the address from a string.
 	///
 	/// Convert from a string representation instead of a sockaddr. The string
-	/// must have a format accepted by inet_pton (e.g., the same format as
-	/// provided by get_address).
+	/// must have a format accepted by inet_pton. The port remains unchanged;
+	/// all other fields are assigned zero.
 	void set_address(const std::string&);
 
 	/// \brief Retrieve the sockadder structure for the address.

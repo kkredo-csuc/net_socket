@@ -114,6 +114,18 @@ void address::set_port(in_port_t num) {
 	}
 }
 
+string address::str() const {
+	string ret;
+	if( is_ipv4() )
+		ret = get_address();
+	else
+		ret = "[" + get_address() + "]";
+
+	ret += ":" + std::to_string(get_port());
+
+	return ret;
+}
+
 string address::get_address() const {
 	string ret;
 	if( addr.ss_family == AF_INET ) {
@@ -707,11 +719,7 @@ int net_socket::get_socktype() const {
 }
 
 std::ostream& operator<<(std::ostream& s, const address& a) {
-	if( a.is_ipv4() )
-		s << a.get_address() << ":" << a.get_port();
-	else
-		s << "[" << a.get_address() << "]:" << a.get_port();
-
+	s << a.str();
 	return s;
 }
 
