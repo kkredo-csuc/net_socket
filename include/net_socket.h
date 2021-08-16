@@ -286,7 +286,7 @@ public:
 	template<typename T>
 		ssize_t recv_all(std::vector<T> &data, size_t exact_size = 0);
 	/// \details See `recv_all(void*)` and `recv(std::string)`.
-	ssize_t recv_all(std::string &data, size_t exact_size);
+	ssize_t recv_all(std::string &data, size_t exact_size = 0);
 
 private:
 	int _sock_desc{-1};
