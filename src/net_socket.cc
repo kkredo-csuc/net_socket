@@ -419,6 +419,10 @@ void net_socket::connect(const std::string &host, const unsigned short port) {
 	connect(host, std::to_string(port));
 }
 
+void net_socket::connect(const address &addr) {
+	connect(addr.get_address(), std::to_string(addr.get_port()));
+}
+
 unique_ptr<net_socket> net_socket::accept() {
 	int new_s = ::accept(_sock_desc, nullptr, nullptr);
 	if( new_s == -1 ){

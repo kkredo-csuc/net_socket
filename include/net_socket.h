@@ -182,6 +182,8 @@ public:
 	void connect(const std::string &host, const std::string &service);
 	/// Connect to the specified host and port.
 	void connect(const std::string &host, unsigned short port);
+	/// Connect to the specified address.
+	void connect(const address &addr);
 	/// Close any active connections.
 	void close();
 
