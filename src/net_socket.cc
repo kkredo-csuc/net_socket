@@ -391,7 +391,7 @@ void net_socket::connect(const std::string &host, const std::string &service) {
 	hints.ai_protocol = 0;
 
 	if ( ( s = getaddrinfo( host.c_str(), service.c_str(), &hints, &result ) ) != 0 ) {
-		throw std::runtime_error(string("net_socket::connect(): ") + string(strerror(errno)));
+		throw std::runtime_error(string("net_socket::connect(): ") + string(gai_strerror(s)));
 	}
 
 	// Iterate through the address list and try to connect
