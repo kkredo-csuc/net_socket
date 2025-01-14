@@ -1,6 +1,6 @@
 #CXX=clang++
 CXX=g++
-CXXFLAGS=-Wall -std=c++11 -I include
+CXXFLAGS=-Wall -std=c++20 -I include
 LDLIBS=-lgtest_main -lgtest -lpthread
 CLANG_TIDY=clang-tidy
 
